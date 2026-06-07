@@ -92,18 +92,25 @@ def save_balanced_train(df_balanced, preprocessor, output_path, preprocessor_pat
     if preprocessor is not None:
         joblib.dump(preprocessor, preprocessor_path)
         print(f"Preprocessor saved to: {preprocessor_path}")
-def verify_no_changes_to_val_test(val_path, test_path, original_val_path, original_test_path):
-    """Verify that validation and test sets are unchanged."""
+def verify_no_changes_to_val_test(val_before, test_before, val_path, test_path):
+    """Verify that validation and test sets are unchanged after imbalance handling.
+
+    Args:
+        val_before:  DataFrame snapshot of val.csv taken *before* any processing.
+        test_before: DataFrame snapshot of test.csv taken *before* any processing.
+        val_path:    Path to the val.csv written after processing.
+        test_path:   Path to the test.csv written after processing.
+    """
     print("\n--- VERIFYING NO CHANGES TO VALIDATION AND TEST SETS ---")
-    # Load current and original validation sets
+
+    # Load current (post-processing) validation and test sets
     current_val = pd.read_csv(val_path)
-    original_val = pd.read_csv(original_val_path)
-    # Load current and original test sets
     current_test = pd.read_csv(test_path)
-    original_test = pd.read_csv(original_test_path)
-    # Check if they are identical
-    val_identical = current_val.equals(original_val)
-    test_identical = current_test.equals(original_test)
+
+    # Compare against the snapshots captured *before* imbalance handling
+    val_identical = current_val.equals(val_before)
+    test_identical = current_test.equals(test_before)
+
     if val_identical:
         print("[OK] Validation set is unchanged")
     else:
@@ -112,34 +119,50 @@ def verify_no_changes_to_val_test(val_path, test_path, original_val_path, origin
         print("[OK] Test set is unchanged")
     else:
         print("[FAIL] Test set has been modified")
+
     return val_identical and test_identical
 def main():
     """Main function to handle class imbalance in the training set."""
     print("=" * 70)
     print("CREDIT CARD FRAUD DETECTION - CLASS IMBALANCE HANDLING")
     print("=" * 70)
+
     # Define file paths
     original_train_path = './data/processed/train.csv'
     balanced_train_path = './data/processed/train_balanced.csv'
-    preprocessor_path = './models/balancing_preprocessor.pkl'
-    val_path = './data/processed/val.csv'
+    preprocessor_path   = './models/balancing_preprocessor.pkl'
+    val_path  = './data/processed/val.csv'
     test_path = './data/processed/test.csv'
+
+    # ── Snapshot val/test BEFORE any processing ──────────────────────────
+    # This lets us verify that imbalance handling only touched train.csv.
+    val_before  = pd.read_csv(val_path)
+    test_before = pd.read_csv(test_path)
+
     # Load training data
     train_df = load_train_data(original_train_path)
+
     # Analyze original class distribution
     analyze_class_distribution(train_df, "ORIGINAL TRAINING SET")
+
     # Handle class imbalance
     balanced_train_df, preprocessor = handle_class_imbalance(train_df, random_state=42)
+
     # Analyze balanced class distribution
     analyze_class_distribution(balanced_train_df, "BALANCED TRAINING SET")
+
     # Save balanced training set
-    save_balanced_train(balanced_train_df, preprocessor, balanced_train_path, preprocessor_path)
-    # Verify that validation and test sets are unchanged
-    original_val_path = './data/processed/val.csv'
-    original_test_path = './data/processed/test.csv'
-    verify_no_changes_to_val_test(val_path, test_path, original_val_path, original_test_path)
+    save_balanced_train(
+        balanced_train_df, preprocessor, balanced_train_path, preprocessor_path
+    )
+
+    # Verify that validation and test sets are unchanged (using pre-processing snapshots)
+    verify_no_changes_to_val_test(val_before, test_before, val_path, test_path)
+
     print("\n" + "=" * 70)
     print("CLASS IMBALANCE HANDLING COMPLETE")
     print("=" * 70)
+
+
 if __name__ == "__main__":
     main()

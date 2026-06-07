@@ -174,6 +174,22 @@ This analysis illustrates that the point-estimate comparison becomes highly stat
 
 ---
 
+## 8. Ethical Considerations & Operational Impact
+
+Deploying machine learning models for real-time financial decisions carries high societal responsibility. Below are the key ethical trade-offs and safeguards required:
+
+### A. False Positive and False Negative Stakes
+- **False Positives (Precision)**: A false positive occurs when a legitimate transaction is classified as fraud. In production, this leads to immediate transactional friction (e.g., declined cards at POS, checkout abandonment). Repeated false positives can cause customer churn, brand damage, and consumer exclusion from essential services.
+- **False Negatives (Recall)**: A false negative occurs when an actual fraud transaction is allowed. This results in direct financial loss (chargebacks) and undermines consumer trust in the payment network.
+- **Calibrated Decision Boundary**: Our decision threshold of **0.4200** was selected to balance precision and recall to optimize both financial protection and customer experience, rather than blindly chasing a single metric.
+
+### B. Safeguards and Human-in-the-Loop Oversight
+- **No Fully Automated Declines**: The pipeline should not be deployed as an autonomous, un-appealable blocker. Highly suspicious transactions (e.g., probability > 0.85) may be temporarily held, but should trigger quick alerts for user confirmation (SMS/push notification) or secondary human analyst review.
+- **Continuous Monitoring for Bias**: Demographic or geographic bias can occur if certain merchants, regions, or transaction patterns are disproportionately flagged. Continuous statistical audits are necessary to ensure the model behaves equitably across all transaction sources.
+- **Operational Auditing**: Every inference decision must log the specific feature contributions (using SHAP values or LightGBM split contributions) to guarantee explanation transparency.
+
+---
+
 ## 7. Foundational Literature References
 
 - **[1] Calibrating Probability with Undersampling**: Dal Pozzolo, A., Caelen, O., Johnson, R. A., & Bontempi, G. (2015). *Calibrating Probability with Undersampling for Unbalanced Classification*. IEEE Symposium on Computational Intelligence and Data Mining (CIDM).

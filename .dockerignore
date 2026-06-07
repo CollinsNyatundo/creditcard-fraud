@@ -25,6 +25,9 @@ __pycache__/
 logs/
 *.log
 
+# Serialized models
+models/
+
 # Datasets (CSV and ZIP files are mounted at runtime via volumes)
 data/raw/
 data/processed/

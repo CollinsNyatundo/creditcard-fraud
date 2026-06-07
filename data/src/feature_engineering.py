@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import RobustScaler
-from sklearn.model_selection import train_test_split
 import os
 import joblib
 # Create processed data directory if it doesn't exist
@@ -54,42 +53,62 @@ def scale_features(df):
     df_scaled[features_to_scale] = scaler.fit_transform(df[features_to_scale])
     print(f"Feature scaling completed. Scaled features: {len(features_to_scale)}")
     return df_scaled, scaler, features_to_scale
-def create_temporal_splits(df, test_size=0.15, val_size=0.15, random_state=42):
+def create_temporal_splits(df, train_size=0.70, val_size=0.15, random_state=42):
     """
-    Create stratified train/validation/test splits with temporal awareness.
-    Since the Time column represents seconds from the first transaction,
-    we sort by Time to maintain temporal order and then split.
+    Create strictly chronological train/validation/test splits using hard
+    time-boundary cuts.
+
+    The data is sorted by the 'Time' column and sliced by index position so
+    that:
+      - train  = first 70 % of transactions by time
+      - val    = next  15 % of transactions by time
+      - test   = last  15 % of transactions by time
+
+    No shuffling or stratified sampling is applied, which prevents any form
+    of temporal data leakage (future transactions appearing in the training
+    set).
+
+    Args:
+        df:          Preprocessed DataFrame containing a 'Time' column.
+        train_size:  Fraction of data for training (default 0.70).
+        val_size:    Fraction of data for validation (default 0.15).
+        random_state: Kept for API compatibility; not used in slicing.
+
+    Returns:
+        tuple: (train_df, val_df, test_df)
     """
-    print("\n--- CREATING TEMPORAL SPLITS ---")
-    # Sort by Time to maintain temporal order
+    print("\n--- CREATING TEMPORAL SPLITS (hard chronological cutoff) ---")
+
+    # Sort by Time to maintain strict temporal ordering
     df_sorted = df.sort_values('Time').reset_index(drop=True)
-    # First split: separate test set
-    # We split so that the test set contains the most recent transactions
-    X_temp = df_sorted.drop('Class', axis=1)
-    y_temp = df_sorted['Class']
-    # Split off test set (most recent transactions)
-    X_temporal, X_test, y_temporal, y_test = train_test_split(
-        X_temp, y_temp,
-        test_size=test_size,
-        stratify=y_temp,
-        random_state=random_state
-    )
-    # Second split: separate validation set from remaining data
-    # The validation set will contain more recent transactions than training
-    val_ratio = val_size / (1 - test_size)  # Adjust for the remaining data
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_temporal, y_temporal,
-        test_size=val_ratio,
-        stratify=y_temporal,
-        random_state=random_state
-    )
-    # Create dataframes with the proper indices
-    train_df = df_sorted.loc[X_train.index].copy()
-    val_df = df_sorted.loc[X_val.index].copy()
-    test_df = df_sorted.loc[X_test.index].copy()
-    print(f"Train set shape: {train_df.shape}")
+
+    n = len(df_sorted)
+    train_end = int(n * train_size)
+    val_end   = train_end + int(n * val_size)
+
+    train_df = df_sorted.iloc[:train_end].copy()
+    val_df   = df_sorted.iloc[train_end:val_end].copy()
+    test_df  = df_sorted.iloc[val_end:].copy()
+
+    print(f"Train set shape:      {train_df.shape}")
     print(f"Validation set shape: {val_df.shape}")
-    print(f"Test set shape: {test_df.shape}")
+    print(f"Test set shape:       {test_df.shape}")
+
+    # ── Temporal integrity assertion ────────────────────────────────────
+    # These must hold for a truly non-leaky split:
+    assert train_df['Time'].max() <= val_df['Time'].min(), (
+        "LEAKAGE DETECTED: training set contains transactions later than "
+        "the earliest validation transaction."
+    )
+    assert val_df['Time'].max() <= test_df['Time'].min(), (
+        "LEAKAGE DETECTED: validation set contains transactions later than "
+        "the earliest test transaction."
+    )
+    print("[OK] Temporal integrity verified: "
+          f"max(train.Time)={train_df['Time'].max():.0f} "
+          f"<= min(val.Time)={val_df['Time'].min():.0f} "
+          f"<= min(test.Time)={test_df['Time'].min():.0f}")
+
     return train_df, val_df, test_df
 def analyze_splits(train_df, val_df, test_df):
     """Analyze the class distribution in each split."""

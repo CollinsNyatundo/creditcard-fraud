@@ -276,8 +276,18 @@ We welcome contributions to optimize classifier latency, implement alternative m
 
 [![Contributors](https://contrib.rocks/image?repo=ai-ml/creditcard-fraud)](https://github.com/ai-ml/creditcard-fraud/graphs/contributors)
 
+## Ethical Disclaimer
+
+> [!WARNING]
+> **Automated Decision-Making and Financial Access Risks**
+>
+> 1. **No Fully Automated Deployment**: This system should **never** be deployed as a fully automated blocker of credit access or account suspension without human-in-the-loop oversight. False positives in fraud detection can lead to unfair exclusion of legitimate consumers from essential financial services.
+> 2. **Evaluation Balance & Bias**: The dataset used here contains anonymized transaction data. In a live system, models may exhibit differential error rates across demographic cohorts or geographic regions if not regularly audited for fairness.
+> 3. **Transparency & Redress**: Any decision to reject or delay a transaction should be logged with clear explanation codes, and cardholders must be provided a simple, fast redress mechanism to appeal automated decisions.
+
 ## License
 
 This project is licensed under the **Apache License 2.0**. See the [LICENSE](LICENSE) file for details.
+
 
 ---
