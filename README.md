@@ -66,7 +66,7 @@ The pipeline follows a modular architecture from raw transaction intake to real-
 graph TD
     A[Raw Transactions: creditcard.csv] --> B[Data Quality & Exploration: data_exploration.py]
     A --> C[Preprocessing & Robust Scaling: feature_engineering.py]
-    C --> D[Temporal Train/Val/Test Split: stratified by class]
+    C --> D[Temporal Train/Val/Test Split: chronological cutoff]
     D --> E[Class Imbalance Solver: SMOTE + Undersampling]
     E --> F[Advanced Feature Engineering: advanced_feature_engineering.py]
     F --> G[Optuna Hyperparameter Tuning: latency-constrained]

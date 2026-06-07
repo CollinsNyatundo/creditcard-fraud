@@ -32,7 +32,7 @@ The codebase is organized into several key directories:
 
 ### A. Data Exploration & Preparation (`/data/src`)
 *   **[data_exploration.py](data/src/data_exploration.py)**: Performs data quality checks, schema verification, missing value analyses, and generates the EDA report.
-*   **[feature_engineering.py](data/src/feature_engineering.py)**: Creates basic time and amount features, applies `RobustScaler` to numerical columns, and performs stratified temporal splits (train, validation, test).
+*   **[feature_engineering.py](data/src/feature_engineering.py)**: Creates basic time and amount features, applies `RobustScaler` to numerical columns, and performs chronological temporal splits (train, validation, test).
 *   **[handle_imbalance.py](data/src/handle_imbalance.py)**: Addresses class imbalance in the training set using a hybrid SMOTE (oversampling) and RandomUnderSampler (undersampling) pipeline, targeting a balanced ratio of 1:5 (fraud to legitimate).
 
 ### B. Advanced Feature Engineering (`/src` and `/data/src`)
