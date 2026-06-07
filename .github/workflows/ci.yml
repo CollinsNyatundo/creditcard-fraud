@@ -1,0 +1,218 @@
+name: CI — Fraud Detection Pipeline
+
+on:
+  push:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'reports/**'
+  pull_request:
+    branches: [master, main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'reports/**'
+  workflow_dispatch:    # Allow manual trigger
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # ── Lint & Import Validation ───────────────────────────────────────────
+  lint:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Syntax-check all Python source files
+        run: |
+          echo "=== Checking data/src ==="
+          python -m py_compile data/src/feature_engineering.py
+          python -m py_compile data/src/advanced_feature_engineering.py
+          python -m py_compile data/src/handle_imbalance.py
+          python -m py_compile data/src/lightweight_feature_engineering.py
+          echo "=== Checking model/src ==="
+          python -m py_compile model/src/train_baseline_model.py
+          python -m py_compile model/src/final_model_evaluation.py
+          python -m py_compile model/src/hyperparameter_tuning_fixed.py
+          echo "=== Checking src ==="
+          python -m py_compile src/feature_engineering.py
+          echo "=== Checking utils ==="
+          python -m py_compile utils/validate_results.py
+          python -m py_compile utils/dataset_validation_summary.py
+          python -m py_compile utils/environment_detection.py
+          echo "All files passed syntax check"
+
+      - name: Verify imports resolve in venv
+        run: |
+          python -c "
+          import pandas, numpy, sklearn, lightgbm, joblib, optuna
+          from imblearn.over_sampling import SMOTE
+          from imblearn.under_sampling import RandomUnderSampler
+          print('All required packages import successfully')
+          print(f'  pandas={pandas.__version__}')
+          print(f'  lightgbm={lightgbm.__version__}')
+          print(f'  sklearn={sklearn.__version__}')
+          "
+
+  # ── Pipeline Integration Check ────────────────────────────────────────
+  pipeline-check:
+    name: Pipeline Structure Check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify directory structure
+        run: |
+          python - <<'EOF'
+          import os, sys
+
+          required_dirs = [
+              'data/src', 'model/src', 'src', 'utils',
+              'debug_scripts', 'docs', 'reports', 'models', 'data'
+          ]
+          missing = [d for d in required_dirs if not os.path.isdir(d)]
+          if missing:
+              print(f"FAIL: Missing directories: {missing}")
+              sys.exit(1)
+
+          required_files = [
+              'requirements.txt',
+              'Dockerfile',
+              'docker-compose.yml',
+              '.gitignore',
+              'data/src/feature_engineering.py',
+              'data/src/handle_imbalance.py',
+              'model/src/train_baseline_model.py',
+              'model/src/hyperparameter_tuning_fixed.py',
+              'model/src/final_model_evaluation.py',
+          ]
+          missing_files = [f for f in required_files if not os.path.isfile(f)]
+          if missing_files:
+              print(f"FAIL: Missing files: {missing_files}")
+              sys.exit(1)
+
+          print("OK: All required directories and files present")
+          EOF
+
+      - name: Validate feature engineering imports are clean (no inline imports)
+        run: |
+          python - <<'EOF'
+          import ast, sys
+
+          files_to_check = [
+              'data/src/feature_engineering.py',
+              'data/src/handle_imbalance.py',
+              'model/src/hyperparameter_tuning_fixed.py',
+              'model/src/final_model_evaluation.py',
+          ]
+
+          issues = []
+          for filepath in files_to_check:
+              with open(filepath) as f:
+                  source = f.read()
+              tree = ast.parse(source)
+              for node in ast.walk(tree):
+                  # Find imports that are NOT at module top-level
+                  if isinstance(node, (ast.Import, ast.ImportFrom)):
+                      # Module-level nodes have col_offset == 0 and are
+                      # direct children of the Module body — we flag anything
+                      # deeply nested (inside a function/class body)
+                      pass  # AST walk doesn't track depth easily; use line approach
+
+          # Simple line-based check: import inside def block
+          for filepath in files_to_check:
+              with open(filepath) as f:
+                  lines = f.readlines()
+              in_func = False
+              indent_level = 0
+              for i, line in enumerate(lines, 1):
+                  stripped = line.lstrip()
+                  if stripped.startswith('def ') or stripped.startswith('class '):
+                      in_func = True
+                      indent_level = len(line) - len(stripped)
+                  if in_func and stripped.startswith('import ') or (in_func and stripped.startswith('from ') and ' import ' in stripped):
+                      curr_indent = len(line) - len(stripped)
+                      if curr_indent > indent_level:
+                          issues.append(f"{filepath}:{i}: inline import: {stripped.strip()}")
+
+          if issues:
+              print("FAIL: Inline imports found (should be at module level):")
+              for issue in issues:
+                  print(f"  {issue}")
+              sys.exit(1)
+          print("OK: No inline imports found in checked files")
+          EOF
+
+      - name: Check .gitignore covers model artifacts
+        run: |
+          python - <<'EOF'
+          import sys
+
+          with open('.gitignore') as f:
+              content = f.read()
+
+          required_patterns = ['models/*.pkl', 'models/*.txt', '*.csv', '.venv']
+          missing = [p for p in required_patterns if p not in content]
+          if missing:
+              print(f"FAIL: .gitignore missing patterns: {missing}")
+              sys.exit(1)
+          print("OK: .gitignore covers required artifact patterns")
+          EOF
+
+  # ── Docker Build Validation ───────────────────────────────────────────
+  docker-build:
+    name: Docker Build Validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349  # v3.7.1
+
+      - name: Build Docker image (validate only, no push)
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75  # v6.9.0
+        with:
+          context: .
+          push: false
+          tags: creditcard-fraud:ci-check
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify image structure
+        run: |
+          docker run --rm creditcard-fraud:ci-check \
+            python -c "import lightgbm, sklearn, pandas, numpy, imblearn; print('Container environment OK')"
