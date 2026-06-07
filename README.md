@@ -37,17 +37,21 @@ The following metrics have been verified on the test dataset through our end-to-
 ### Global Benchmark Standing & Statistical Rigor
 
 <!-- [Psychological Job: Proof & Authority Alignment] -->
-Rather than presenting nominal point estimates that suffer from evaluation variance, our model's performance is qualified using **Bootstrap Resampling ($B=10,000$)** and benchmarked against rigorously evaluated, non-leaky temporal baselines from literature:
+Rather than presenting nominal point estimates that suffer from evaluation variance under extreme class imbalance, our model's performance is qualified using **Bootstrap Resampling ($B=10,000$)** and a simulation-based **Statistical Power Analysis**:
 
-- **F1-Score Point Estimate (0.8511)**: Ranks in the top tier of non-leaky, chronological models. However, bootstrap validation reveals a **95% Confidence Interval (CI) of `[0.7805, 0.9079]`** (median F1 of `0.8514`).
-- **Statistical Overlap & Rigor**: A hypothesis test comparing our performance against the typical chronological baseline upper bound ($0.82$) yields a **p-value of `0.1762`**. This demonstrates that nominal F1 differences (such as 0.85 vs. 0.82) are statistically overlapping due to the small sample size of the positive class in temporal testing folds (74 fraud transactions). 
-- **Production Value Proposition**: Community notebooks claiming `F1 > 0.90` suffer from data leakage (e.g., applying global resampling before train-test splits). In production fintech settings, payment gateways and regulators prioritize the **absolute absence of data leakage** over inflated point estimates. Our model represents a realistic, generalization-safe classifier that satisfies production-level compliance.
-- **Inference Latency (2.58 ms 95th% / 1.67 ms Median)**: Guarantees compliance with real-time merchant SLAs (`<10 ms` gateway cutoffs), satisfying an operational constraint typically ignored in academic literature.
+- **Bootstrap F1-Score Distribution**: While our point estimate F1-score is **0.8511**, bootstrap validation reveals a **95% Confidence Interval (CI) of `[0.7805, 0.9079]`** (median F1 of `0.8514`).
+- **Statistical Insignificance ($p=0.1762$)**: A hypothesis test comparing our optimized model against the typical non-leaky temporal baseline upper bound ($0.82$) yields a p-value of `0.1762`. This confirms that the F1-score difference is not statistically significant at $\alpha=0.05$ due to the small sample size of the positive class in temporal test partitions (74 fraud cases).
+- **Underpowered Point Comparisons (25.9% Power)**: A simulation-based power analysis shows that a test set with **74 fraud transactions** only has a **25.95% statistical power** to detect an F1-score difference of $0.0311$. The probability of a Type II error (failing to detect a real improvement) is **74.05%**.
+- **Data Scale Constraints**: To reach the standard **80% statistical power**, a test partition must contain **>500 fraud transactions**. Under the natural $0.172\%$ fraud occurrence rate, this requires a test split of over 300,000 transactions, translating to a total dataset of **over 1.5 million transactions** under a 60/20/20 partition.
+- **Production Value Proposition**: Point-estimate F1 rankings in credit card fraud detection are mathematically underpowered on standard test sets. The real competitive differentiator of this pipeline is its **strict temporal data isolation**. By executing all preprocessing and resampling solely on chronological training data, we guarantee a leakage-free, realistic classifier that generalizes safely in production fintech environments.
+- **Latency SLA Compliance**: The optimized LightGBM model achieves a **2.58 ms 95th percentile latency** and **1.67 ms median latency**, ensuring compliance with strict gateway routing constraints (<10 ms).
 
-#### F1-Score Empirical Distribution:
-The chart below shows the empirical distribution of our model's F1-score over 10,000 bootstrap resamples, compared against the non-leaky baseline upper bound:
+#### F1-Score Statistical Validation Visualizations:
 
-![Bootstrap F1-Score Distribution](reports/bootstrap_f1_distribution.png)
+| Empirical F1 Distribution (Bootstrap) | Statistical Power Curve ($N_{fraud}$ vs. Power) |
+| :---: | :---: |
+| ![Bootstrap F1-Score Distribution](reports/bootstrap_f1_distribution.png) | ![Statistical Power Curve](reports/statistical_power_analysis.png) |
+
 
 
 ---

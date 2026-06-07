@@ -1,0 +1,85 @@
+{
+  "current_fraud_cases": 74,
+  "current_power": 0.2595,
+  "target_power": 0.8,
+  "required_fraud_cases_for_80_power": null,
+  "required_total_samples_for_80_power": null,
+  "curve_data": [
+    {
+      "fraud_cases": 50,
+      "power": 0.2145
+    },
+    {
+      "fraud_cases": 75,
+      "power": 0.212
+    },
+    {
+      "fraud_cases": 100,
+      "power": 0.301
+    },
+    {
+      "fraud_cases": 125,
+      "power": 0.3455
+    },
+    {
+      "fraud_cases": 150,
+      "power": 0.39
+    },
+    {
+      "fraud_cases": 175,
+      "power": 0.3925
+    },
+    {
+      "fraud_cases": 200,
+      "power": 0.437
+    },
+    {
+      "fraud_cases": 225,
+      "power": 0.504
+    },
+    {
+      "fraud_cases": 250,
+      "power": 0.5015
+    },
+    {
+      "fraud_cases": 275,
+      "power": 0.546
+    },
+    {
+      "fraud_cases": 300,
+      "power": 0.6045
+    },
+    {
+      "fraud_cases": 325,
+      "power": 0.629
+    },
+    {
+      "fraud_cases": 350,
+      "power": 0.656
+    },
+    {
+      "fraud_cases": 375,
+      "power": 0.6765
+    },
+    {
+      "fraud_cases": 400,
+      "power": 0.6995
+    },
+    {
+      "fraud_cases": 425,
+      "power": 0.7125
+    },
+    {
+      "fraud_cases": 450,
+      "power": 0.748
+    },
+    {
+      "fraud_cases": 475,
+      "power": 0.795
+    },
+    {
+      "fraud_cases": 500,
+      "power": 0.7805
+    }
+  ]
+}
