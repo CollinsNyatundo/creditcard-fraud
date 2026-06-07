@@ -5,6 +5,7 @@ from imblearn.under_sampling import RandomUnderSampler
 from imblearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+import joblib
 import os
 def load_train_data(filepath):
     """Load the training dataset."""
@@ -89,7 +90,6 @@ def save_balanced_train(df_balanced, preprocessor, output_path, preprocessor_pat
     print(f"Balanced training set saved to: {output_path}")
     # Save preprocessor if it exists
     if preprocessor is not None:
-        import joblib
         joblib.dump(preprocessor, preprocessor_path)
         print(f"Preprocessor saved to: {preprocessor_path}")
 def verify_no_changes_to_val_test(val_path, test_path, original_val_path, original_test_path):

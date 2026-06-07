@@ -2,12 +2,12 @@ import pandas as pd
 import numpy as np
 import lightgbm as lgb
 import optuna
+import joblib
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import StratifiedKFold
 import time
 import json
 import warnings
-import timeit
 warnings.filterwarnings('ignore')
 class LatencyConstrainedObjective:
     def __init__(self, X_train, y_train, X_val, y_val, feature_cols, latency_threshold=0.008):
@@ -203,8 +203,6 @@ def main():
     # Save model and results
     print("Saving model and results...")
     final_model.save_model('./models/optimized_lightgbm.txt')
-    # Save as pickle
-    import joblib
     joblib.dump(final_model, './models/optimized_lightgbm.pkl')
     # Save optimal threshold
     with open('./models/optimal_threshold_v2.json', 'w') as f:

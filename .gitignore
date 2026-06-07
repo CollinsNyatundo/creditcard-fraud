@@ -50,3 +50,8 @@ reports/paper_text_summary.txt
 reports/audited_paper_references.txt
 reports/new_dataset_inspection_report.json
 
+# Model binary artifacts (large files, not suitable for git)
+models/*.pkl
+models/*.txt
+models/*.json
+!models/.gitkeep

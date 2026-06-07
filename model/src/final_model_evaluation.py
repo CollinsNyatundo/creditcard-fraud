@@ -4,7 +4,6 @@ import joblib
 import json
 import time
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, average_precision_score, confusion_matrix, classification_report
-from sklearn.preprocessing import LabelEncoder
 import lightgbm as lgb
 def load_model_and_preprocessor():
     """Load the baseline LightGBM model and preprocessor"""

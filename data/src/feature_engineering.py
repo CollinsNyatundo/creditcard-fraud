@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.preprocessing import RobustScaler
 from sklearn.model_selection import train_test_split
 import os
+import joblib
 # Create processed data directory if it doesn't exist
 os.makedirs('./data/processed', exist_ok=True)
 def load_data(filepath):
@@ -119,8 +120,6 @@ def save_splits(train_df, val_df, test_df, scaler, features_scaled):
     train_df.to_csv('./data/processed/train.csv', index=False)
     val_df.to_csv('./data/processed/val.csv', index=False)
     test_df.to_csv('./data/processed/test.csv', index=False)
-    # Save scaler
-    import joblib
     joblib.dump(scaler, './models/preprocessor.pkl')
     # Save features scaled list
     with open('./models/features_scaled.txt', 'w') as f:
