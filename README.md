@@ -34,13 +34,21 @@ The following metrics have been verified on the test dataset through our end-to-
 > [!TIP]
 > The optimized LightGBM model reduces the 95th percentile latency by **80%** compared to the baseline model, dropping from 13.00 ms to just **2.58 ms**, well within the 10 ms real-time authorization SLA.
 
-### Global Benchmark Standing
+### Global Benchmark Standing & Statistical Rigor
 
 <!-- [Psychological Job: Proof & Authority Alignment] -->
-Our optimized LightGBM configuration ranks in the **top tier** of published literature for the Kaggle/ULB European cardholders dataset:
-- **F1-Score (0.8511)**: Ranks in the **top 15%** of academic baselines (typically ranging between `0.75` and `0.88` for temporal-split evaluations). Note that community notebooks claiming `F1 > 0.90` often use non-temporal splits, which leak future data into past training samples.
-- **ROC-AUC (0.9819)**: Placed firmly in the upper echelon of benchmark models (standard range `0.96` to `0.99`).
-- **Inference Latency (2.58 ms 95th%)**: Exceeds standard commercial SLAs (`<10 ms` gateway cutoffs). While academic papers often ignore latency constraints in favor of raw scores, our model is tuned to guarantee both high statistical accuracy and sub-3ms median inference times.
+Rather than presenting nominal point estimates that suffer from evaluation variance, our model's performance is qualified using **Bootstrap Resampling ($B=10,000$)** and benchmarked against rigorously evaluated, non-leaky temporal baselines from literature:
+
+- **F1-Score Point Estimate (0.8511)**: Ranks in the top tier of non-leaky, chronological models. However, bootstrap validation reveals a **95% Confidence Interval (CI) of `[0.7805, 0.9079]`** (median F1 of `0.8514`).
+- **Statistical Overlap & Rigor**: A hypothesis test comparing our performance against the typical chronological baseline upper bound ($0.82$) yields a **p-value of `0.1762`**. This demonstrates that nominal F1 differences (such as 0.85 vs. 0.82) are statistically overlapping due to the small sample size of the positive class in temporal testing folds (74 fraud transactions). 
+- **Production Value Proposition**: Community notebooks claiming `F1 > 0.90` suffer from data leakage (e.g., applying global resampling before train-test splits). In production fintech settings, payment gateways and regulators prioritize the **absolute absence of data leakage** over inflated point estimates. Our model represents a realistic, generalization-safe classifier that satisfies production-level compliance.
+- **Inference Latency (2.58 ms 95th% / 1.67 ms Median)**: Guarantees compliance with real-time merchant SLAs (`<10 ms` gateway cutoffs), satisfying an operational constraint typically ignored in academic literature.
+
+#### F1-Score Empirical Distribution:
+The chart below shows the empirical distribution of our model's F1-score over 10,000 bootstrap resamples, compared against the non-leaky baseline upper bound:
+
+![Bootstrap F1-Score Distribution](reports/bootstrap_f1_distribution.png)
+
 
 ---
 

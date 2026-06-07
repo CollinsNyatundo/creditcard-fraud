@@ -41,3 +41,10 @@ data/processed/*.csv
 logs/*
 !logs/.gitkeep
 *.log
+
+# Temporary research and search files
+reports/arxiv_search_*.json
+reports/arxiv_search_test.json
+reports/data_leakage_paper.pdf
+reports/paper_text_summary.txt
+
