@@ -1,0 +1,66 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Credit Card Fraud Detection - EDA Report</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1, h2 { color: #2c3e50; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            tr:nth-child(even) { background-color: #f9f9f9; }
+            .success { color: green; }
+            .warning { color: orange; }
+            .error { color: red; }
+            .section { margin: 30px 0; }
+        </style>
+    </head>
+    <body>
+        <h1>Credit Card Fraud Detection - Exploratory Data Analysis Report</h1>
+        <p><strong>Report Generated:</strong> 2025-10-21 15:20:04</p>
+        <div class="section">
+            <h2>Dataset Overview</h2>
+            <p><strong>Shape:</strong> 284,807 rows × 32 columns</p>
+            <p><strong>Memory Usage:</strong> 67.63 MB</p>
+        </div>
+        <div class="section">
+            <h2>Schema Validation</h2>
+            <p class="success">
+                ✓ Schema validation passed
+            </p>
+        </div>
+        <div class="section">
+            <h2>Missing Values Analysis</h2>
+    <p class='success'>✓ No missing values found in the dataset</p>
+        </div>
+        <div class="section">
+            <h2>Class Distribution</h2>
+            <table>
+                <tr><th>Class</th><th>Count</th><th>Percentage</th></tr>
+    <tr><td>0</td><td>284,315</td><td>99.8273%</td></tr><tr><td>1</td><td>492</td><td>0.1727%</td></tr>
+            </table>
+            <p><strong>Imbalance Ratio (non-fraud:fraud):</strong> 578:1</p>
+            <p><strong>Fraud Rate:</strong> 0.1727%</p>
+        
+        </div>
+        <div class="section">
+            <h2>Summary Statistics - Numerical Features</h2>
+            <table>
+                <tr><th>Statistic</th>
+    <th>Time</th><th>V1</th><th>V2</th><th>V3</th><th>V4</th><th>V5</th><th>V6</th><th>V7</th><th>V8</th><th>V9</th></tr><tr><td>count</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td><td>284807.0000</td></tr><tr><td>mean</td><td>94813.8596</td><td>0.0000</td><td>0.0000</td><td>-0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>-0.0000</td><td>0.0000</td><td>-0.0000</td></tr><tr><td>std</td><td>47488.1460</td><td>1.9587</td><td>1.6513</td><td>1.5163</td><td>1.4159</td><td>1.3802</td><td>1.3323</td><td>1.2371</td><td>1.1944</td><td>1.0986</td></tr><tr><td>min</td><td>0.0000</td><td>-56.4075</td><td>-72.7157</td><td>-48.3256</td><td>-5.6832</td><td>-113.7433</td><td>-26.1605</td><td>-43.5572</td><td>-73.2167</td><td>-13.4341</td></tr><tr><td>25%</td><td>54201.5000</td><td>-0.9204</td><td>-0.5985</td><td>-0.8904</td><td>-0.8486</td><td>-0.6916</td><td>-0.7683</td><td>-0.5541</td><td>-0.2086</td><td>-0.6431</td></tr><tr><td>50%</td><td>84692.0000</td><td>0.0181</td><td>0.0655</td><td>0.1798</td><td>-0.0198</td><td>-0.0543</td><td>-0.2742</td><td>0.0401</td><td>0.0224</td><td>-0.0514</td></tr><tr><td>75%</td><td>139320.5000</td><td>1.3156</td><td>0.8037</td><td>1.0272</td><td>0.7433</td><td>0.6119</td><td>0.3986</td><td>0.5704</td><td>0.3273</td><td>0.5971</td></tr><tr><td>max</td><td>172792.0000</td><td>2.4549</td><td>22.0577</td><td>9.3826</td><td>16.8753</td><td>34.8017</td><td>73.3016</td><td>120.5895</td><td>20.0072</td><td>15.5950</td></tr>
+            </table>
+            <p><em>Note: Only first 10 features shown for brevity. See CSV file for complete statistics.</em></p>
+        </div>
+        <div class="section">
+            <h2>Visualizations</h2>
+            <p>Key visualizations have been saved to <code>./reports/eda_visualizations.png</code></p>
+            <img src="eda_visualizations.png" alt="EDA Visualizations" style="max-width:100%; height:auto;">
+        </div>
+        <div class="section">
+            <h2>Data Quality Summary</h2>
+    <p class='success'>✓ Data quality is high - no schema issues or missing values detected</p>
+        </div>
+    </body>
+    </html>
+    

@@ -1,0 +1,43 @@
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python compiled files and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# OS-specific metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE and tool configurations
+.vscode/
+.idea/
+.gemini/
+.agents
+.agents/
+
+# Large Datasets (Ignore raw and processed CSV/ZIP files)
+*.csv
+*.zip
+*.rar
+*.gz
+*.tar
+data/raw/creditcard.csv
+data/raw/creditcardfraud.zip
+data/processed/*.csv
+
+# Allow keeping folder structures
+!data/
+!data/processed/
+!data/raw/
+!logs/
+logs/*
+!logs/.gitkeep
+*.log

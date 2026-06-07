@@ -1,0 +1,89 @@
+{
+    "project_overview": {
+        "total_files": 42,
+        "project_path": "/app/realtime_credit_card_1507"
+    },
+    "file_categories": {
+        "python_scripts": {
+            "count": 16,
+            "files": {
+                "data_processing": [
+                    "data/src/advanced_feature_engineering.py",
+                    "data/src/data_exploration.py",
+                    "data/src/feature_engineering.py",
+                    "data/src/handle_imbalance.py",
+                    "data/src/lightweight_feature_engineering.py",
+                    "data/src/minimal_feature_engineering.py",
+                    "src/feature_engineering.py"
+                ],
+                "model_training": [
+                    "model/src/hyperparameter_tuning.py",
+                    "model/src/hyperparameter_tuning_fixed.py",
+                    "model/src/train_baseline_model.py"
+                ],
+                "evaluation": [
+                    "final_model_evaluation.py"
+                ],
+                "utilities": [
+                    "utils/check_files.py",
+                    "utils/environment_detection.py",
+                    "utils/validate_results.py"
+                ],
+                "other": [
+                    "test.py",
+                    "VALIDATION_SCRIPT.py"
+                ]
+            }
+        },
+        "data_files": {
+            "count": 9,
+            "files": {
+                "raw": [
+                    "data/raw/creditcard.csv"
+                ],
+                "processed": [
+                    "data/processed/test.csv",
+                    "data/processed/train.csv",
+                    "data/processed/train_balanced.csv",
+                    "data/processed/val.csv"
+                ],
+                "enhanced": [
+                    "data/processed/test_enhanced.csv",
+                    "data/processed/train_enhanced.csv",
+                    "data/processed/val_enhanced.csv"
+                ]
+            }
+        },
+        "model_artifacts": {
+            "count": 7,
+            "files": [
+                "models/balancing_preprocessor.pkl",
+                "models/baseline_lightgbm.pkl",
+                "models/baseline_lightgbm.txt",
+                "models/features_scaled.txt",
+                "models/optimized_lightgbm.pkl",
+                "models/optimized_lightgbm.txt",
+                "models/preprocessor.pkl"
+            ]
+        },
+        "reports_and_configs": {
+            "count": 8,
+            "files": [
+                "models/feature_list.json",
+                "models/feature_names.json",
+                "models/optimal_threshold.json",
+                "models/optimal_threshold_v2.json",
+                "reports/eda_report.html",
+                "reports/eda_visualizations.png",
+                "reports/hyperparameter_optimization.json",
+                "reports/model_evaluation.json"
+            ]
+        },
+        "other": {
+            "count": 2,
+            "files": [
+                "execution_blocked_status.txt"
+            ]
+        }
+    }
+}

@@ -1,0 +1,22 @@
+{
+  "best_params": {
+    "num_leaves": 50,
+    "max_depth": 10,
+    "learning_rate": 0.07587945476302646,
+    "min_child_samples": 64,
+    "subsample": 0.6624074561769746,
+    "colsample_bytree": 0.662397808134481,
+    "reg_alpha": 0.5808361216819946,
+    "reg_lambda": 8.661761457749352
+  },
+  "best_f1": -Infinity,
+  "final_metrics": {
+    "f1_score": 0.851063829787234,
+    "precision": 0.8955223880597015,
+    "recall": 0.8108108108108109,
+    "roc_auc": 0.9818964293500028,
+    "avg_latency": 0.01679982805252075,
+    "latency_95_percentile": 0.030362963676452637,
+    "optimal_threshold": 0.4199999999999998
+  }
+}

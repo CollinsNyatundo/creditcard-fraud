@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  pipeline:
+    build: .
+    image: creditcard-fraud-pipeline:latest
+    container_name: creditcard_fraud_container
+    volumes:
+      - .:/app/realtime_credit_card_1507
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: python debug_scripts/VALIDATION_SCRIPT.py

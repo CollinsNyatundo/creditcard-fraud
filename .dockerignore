@@ -1,0 +1,39 @@
+# Git
+.git/
+.gitignore
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python compiled cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+
+# IDEs and workspace tools
+.vscode/
+.idea/
+.gemini/
+.agents/
+
+# Logs and metrics runs
+logs/
+*.log
+
+# Datasets (CSV and ZIP files are mounted at runtime via volumes)
+data/raw/
+data/processed/
+*.csv
+*.zip
+*.rar
+*.gz
+
+# System specific
+.DS_Store
+Thumbs.db
+desktop.ini

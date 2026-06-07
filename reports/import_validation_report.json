@@ -1,0 +1,171 @@
+{
+  "library_results": {
+    "pandas": {
+      "success": true,
+      "error": null
+    },
+    "numpy": {
+      "success": true,
+      "error": null
+    },
+    "scipy": {
+      "success": true,
+      "error": null
+    },
+    "matplotlib": {
+      "success": true,
+      "error": null
+    },
+    "seaborn": {
+      "success": true,
+      "error": null
+    },
+    "scikit-learn": {
+      "success": true,
+      "error": null
+    },
+    "lightgbm": {
+      "success": true,
+      "error": null
+    },
+    "xgboost": {
+      "success": true,
+      "error": null
+    },
+    "imbalanced-learn": {
+      "success": true,
+      "error": null
+    },
+    "torch": {
+      "success": true,
+      "error": null
+    },
+    "torchvision": {
+      "success": true,
+      "error": null
+    },
+    "joblib": {
+      "success": true,
+      "error": null
+    },
+    "pickle": {
+      "success": true,
+      "error": null
+    },
+    "json": {
+      "success": true,
+      "error": null
+    },
+    "yaml": {
+      "success": true,
+      "error": null
+    }
+  },
+  "script_results": {
+    "dataset_validation_summary.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "final_model_evaluation.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "test.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "VALIDATION_SCRIPT.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/advanced_feature_engineering.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/data_exploration.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/feature_engineering.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/handle_imbalance.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/lightweight_feature_engineering.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "data/src/minimal_feature_engineering.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "debug_scripts/dataset_validation.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "debug_scripts/file_inventory.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "debug_scripts/import_tester.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "model/src/hyperparameter_tuning.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "model/src/hyperparameter_tuning_fixed.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "model/src/train_baseline_model.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "src/feature_engineering.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "utils/check_files.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    },
+    "utils/environment_detection.py": {
+      "status": "issues",
+      "issues": [
+        {
+          "import_line": "import cudf",
+          "error": "No module named 'cudf'"
+        }
+      ],
+      "issue_count": 1
+    },
+    "utils/validate_results.py": {
+      "status": "success",
+      "issues": [],
+      "issue_count": 0
+    }
+  }
+}

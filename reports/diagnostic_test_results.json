@@ -1,0 +1,24 @@
+{
+  "./model/src/train_baseline_model.py": {
+    "status": "success",
+    "output": "Train baseline model diagnostics completed successfully",
+    "details": {
+      "rows_tested": 100,
+      "class_distribution": {
+        "0": 100
+      },
+      "model_test": "completed"
+    },
+    "time": 1780841229.468032
+  },
+  "./model/src/final_model_evaluation.py": {
+    "status": "success",
+    "output": "Final model evaluation diagnostics completed successfully",
+    "details": {
+      "model_loaded": "<class 'lightgbm.basic.Booster'>",
+      "preprocessor_loaded": "<class 'sklearn.preprocessing._data.RobustScaler'>",
+      "test_data_rows": 50
+    },
+    "time": 1780841229.4861898
+  }
+}
