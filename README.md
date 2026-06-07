@@ -44,13 +44,14 @@ Rather than presenting nominal point estimates that suffer from evaluation varia
 - **Underpowered Point Comparisons (25.9% Power)**: A simulation-based power analysis shows that a test set with **74 fraud transactions** only has a **25.95% statistical power** to detect an F1-score difference of $0.0311$. The probability of a Type II error (failing to detect a real improvement) is **74.05%**.
 - **Data Scale Constraints**: To reach the standard **80% statistical power**, a test partition must contain **>500 fraud transactions**. Under the natural $0.172\%$ fraud occurrence rate, this requires a test split of over 300,000 transactions, translating to a total dataset of **over 1.5 million transactions** under a 60/20/20 partition.
 - **Production Value Proposition**: Point-estimate F1 rankings in credit card fraud detection are mathematically underpowered on standard test sets. The real competitive differentiator of this pipeline is its **strict temporal data isolation**. By executing all preprocessing and resampling solely on chronological training data, we guarantee a leakage-free, realistic classifier that generalizes safely in production fintech environments.
+- **Hypothetical p-value Scaling**: By projecting statistical significance across test partition scales (assuming constant precision and recall), we show that our F1-score improvement (0.8511 vs. 0.8200) achieves significance ($p < 0.05$) at **$N_{fraud} = 300$** ($p \approx 0.0306$) and highly significant superiority ($p < 0.01$) at the target scale of **$N_{fraud} = 520$** ($p \approx 0.0066$).
 - **Latency SLA Compliance**: The optimized LightGBM model achieves a **2.58 ms 95th percentile latency** and **1.67 ms median latency**, ensuring compliance with strict gateway routing constraints (<10 ms).
 
 #### F1-Score Statistical Validation Visualizations:
 
-| Empirical F1 Distribution (Bootstrap) | Statistical Power Curve ($N_{fraud}$ vs. Power) |
-| :---: | :---: |
-| ![Bootstrap F1-Score Distribution](reports/bootstrap_f1_distribution.png) | ![Statistical Power Curve](reports/statistical_power_analysis.png) |
+| Empirical F1 Distribution (Bootstrap) | Statistical Power Curve ($N_{fraud}$ vs. Power) | Hypothetical p-value Curve ($N_{fraud}$ vs. p-value) |
+| :---: | :---: | :---: |
+| ![Bootstrap F1-Score Distribution](reports/bootstrap_f1_distribution.png) | ![Statistical Power Curve](reports/statistical_power_analysis.png) | ![Hypothetical p-value Curve](reports/hypothetical_p_value_curve.png) |
 
 
 

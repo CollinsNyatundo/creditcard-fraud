@@ -1,0 +1,47 @@
+{
+  "74": {
+    "total_test_samples": 43097,
+    "p_value": 0.1838,
+    "significant": false
+  },
+  "100": {
+    "total_test_samples": 58239,
+    "p_value": 0.1488,
+    "significant": false
+  },
+  "150": {
+    "total_test_samples": 87359,
+    "p_value": 0.099,
+    "significant": false
+  },
+  "200": {
+    "total_test_samples": 116479,
+    "p_value": 0.0648,
+    "significant": false
+  },
+  "300": {
+    "total_test_samples": 174718,
+    "p_value": 0.0306,
+    "significant": true
+  },
+  "400": {
+    "total_test_samples": 232958,
+    "p_value": 0.0168,
+    "significant": true
+  },
+  "500": {
+    "total_test_samples": 291197,
+    "p_value": 0.0076,
+    "significant": true
+  },
+  "520": {
+    "total_test_samples": 302845,
+    "p_value": 0.0066,
+    "significant": true
+  },
+  "600": {
+    "total_test_samples": 349437,
+    "p_value": 0.0046,
+    "significant": true
+  }
+}
