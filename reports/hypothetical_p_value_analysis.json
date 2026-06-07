@@ -1,47 +1,122 @@
 {
-  "74": {
-    "total_test_samples": 43097,
-    "p_value": 0.1838,
+  "50": {
+    "total_test_samples": 29119,
+    "p_value": 0.1695,
+    "significant": false
+  },
+  "52": {
+    "total_test_samples": 30284,
+    "p_value": 0.144,
+    "significant": false
+  },
+  "75": {
+    "total_test_samples": 43679,
+    "p_value": 0.116,
     "significant": false
   },
   "100": {
     "total_test_samples": 58239,
-    "p_value": 0.1488,
+    "p_value": 0.077,
+    "significant": false
+  },
+  "125": {
+    "total_test_samples": 72799,
+    "p_value": 0.0505,
     "significant": false
   },
   "150": {
     "total_test_samples": 87359,
-    "p_value": 0.099,
-    "significant": false
+    "p_value": 0.0375,
+    "significant": true
+  },
+  "175": {
+    "total_test_samples": 101919,
+    "p_value": 0.0355,
+    "significant": true
   },
   "200": {
     "total_test_samples": 116479,
-    "p_value": 0.0648,
-    "significant": false
+    "p_value": 0.0165,
+    "significant": true
+  },
+  "225": {
+    "total_test_samples": 131038,
+    "p_value": 0.015,
+    "significant": true
+  },
+  "250": {
+    "total_test_samples": 145598,
+    "p_value": 0.008,
+    "significant": true
+  },
+  "275": {
+    "total_test_samples": 160158,
+    "p_value": 0.0075,
+    "significant": true
   },
   "300": {
     "total_test_samples": 174718,
-    "p_value": 0.0306,
+    "p_value": 0.007,
+    "significant": true
+  },
+  "325": {
+    "total_test_samples": 189278,
+    "p_value": 0.004,
+    "significant": true
+  },
+  "350": {
+    "total_test_samples": 203838,
+    "p_value": 0.0035,
+    "significant": true
+  },
+  "375": {
+    "total_test_samples": 218398,
+    "p_value": 0.003,
     "significant": true
   },
   "400": {
     "total_test_samples": 232958,
-    "p_value": 0.0168,
+    "p_value": 0.0015,
+    "significant": true
+  },
+  "425": {
+    "total_test_samples": 247518,
+    "p_value": 0.002,
+    "significant": true
+  },
+  "450": {
+    "total_test_samples": 262077,
+    "p_value": 0.0015,
+    "significant": true
+  },
+  "475": {
+    "total_test_samples": 276637,
+    "p_value": 0.002,
     "significant": true
   },
   "500": {
     "total_test_samples": 291197,
-    "p_value": 0.0076,
+    "p_value": 0.0015,
     "significant": true
   },
-  "520": {
-    "total_test_samples": 302845,
-    "p_value": 0.0066,
+  "525": {
+    "total_test_samples": 305757,
+    "p_value": 0.0005,
+    "significant": true
+  },
+  "550": {
+    "total_test_samples": 320317,
+    "p_value": 0.0,
+    "significant": true
+  },
+  "575": {
+    "total_test_samples": 334877,
+    "p_value": 0.0005,
     "significant": true
   },
   "600": {
     "total_test_samples": 349437,
-    "p_value": 0.0046,
+    "p_value": 0.0005,
     "significant": true
   }
 }

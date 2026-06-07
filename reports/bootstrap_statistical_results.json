@@ -1,18 +1,18 @@
 {
-  "original_f1": 0.851063829787234,
-  "original_precision": 0.8955223880597015,
-  "original_recall": 0.8108108108108109,
+  "original_f1": 0.8478260869565217,
+  "original_precision": 0.975,
+  "original_recall": 0.75,
   "bootstrap_f1": {
-    "mean": 0.8498180532229009,
-    "median": 0.8513513513513513,
+    "mean": 0.8457592773946484,
+    "median": 0.8478260869565217,
     "ci_95": [
-      0.7804878048780488,
-      0.9078947368421053
+      0.7592592592592593,
+      0.9195402298850575
     ]
   },
   "statistical_test": {
-    "null_hypothesis": "True F1-score <= 0.82",
-    "p_value": 0.1762,
+    "null_hypothesis": "True F1-score <= 0.8041",
+    "p_value": 0.1501,
     "is_significant_05": false,
     "is_significant_01": false
   }

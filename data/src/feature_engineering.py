@@ -157,7 +157,7 @@ def main():
     # Scale features
     df_scaled, scaler, features_scaled = scale_features(df_engineered)
     # Create temporal splits
-    train_df, val_df, test_df = create_temporal_splits(df_scaled, test_size=0.15, val_size=0.15, random_state=42)
+    train_df, val_df, test_df = create_temporal_splits(df_scaled, train_size=0.70, val_size=0.15, random_state=42)
     # Analyze splits
     analyze_splits(train_df, val_df, test_df)
     # Save splits and artifacts

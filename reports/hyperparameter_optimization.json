@@ -9,14 +9,14 @@
     "reg_alpha": 0.5808361216819946,
     "reg_lambda": 8.661761457749352
   },
-  "best_f1": -Infinity,
+  "best_f1": 0.9975370643898804,
   "final_metrics": {
-    "f1_score": 0.851063829787234,
-    "precision": 0.8955223880597015,
-    "recall": 0.8108108108108109,
-    "roc_auc": 0.9818964293500028,
-    "avg_latency": 0.01679982805252075,
-    "latency_95_percentile": 0.030362963676452637,
-    "optimal_threshold": 0.4199999999999998
+    "f1_score": 0.8478260869565217,
+    "precision": 0.975,
+    "recall": 0.75,
+    "roc_auc": 0.9738881577761354,
+    "avg_latency": 0.0004897441864013672,
+    "latency_95_percentile": 0.002040255069732666,
+    "optimal_threshold": 0.7599999999999997
   }
 }
