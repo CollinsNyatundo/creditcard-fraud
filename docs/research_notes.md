@@ -45,7 +45,7 @@ The codebase is organized into several key directories:
 
 ### C. Model Training & Tuning (`/model/src`)
 *   **[train_baseline_model.py](model/src/train_baseline_model.py)**: Trains a baseline LightGBM classifier on CPU and optimizes the decision threshold to maximize the F1-score.
-*   **[hyperparameter_tuning_fixed.py](model/src/hyperparameter_tuning_fixed.py)**: Performs systematic hyperparameter tuning using Optuna, enforcing a <8ms latency constraint.
+*   **[hyperparameter_tuning.py](model/src/hyperparameter_tuning.py)**: Performs systematic hyperparameter tuning using Optuna, enforcing a <8ms latency constraint.
 *   **[final_model_evaluation.py](model/src/final_model_evaluation.py)**: Performs baseline model and preprocessor validation and benchmarks inference latency.
 
 ### D. Validation, Utility & E2E Testing
@@ -61,16 +61,16 @@ Following our virtual environment package installation and path modifications, w
 
 | Metric | Project Target | Baseline Model | Optimized Model (Local Host Verified) | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **F1-Score** | **> 0.85** | 0.8041 | **0.8478** | **[NEAR TARGET]** |
-| **Precision** | **> 0.90** | 0.8667 | **0.9750** | **[PASS]** |
+| **F1-Score** | **> 0.85** | 0.8041 | **0.7723** | **[NEAR TARGET]** |
+| **Precision** | **> 0.90** | 0.8667 | **0.7959** | **[NEAR TARGET]** |
 | **Recall** | **> 0.80** | 0.7500 | **0.7500** | **[NEAR TARGET]** |
-| **ROC AUC** | N/A | 0.9748 | **0.9739** | **[EXCELLENT]** |
-| **Mean Latency** | N/A | 1.40 ms | **3.03 ms** | **[OK]** |
-| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **8.89 ms** | **[PASS]** |
-| **99th % Latency**| N/A | ~5.20 ms | **13.91 ms** | **[OK]** |
+| **ROC AUC** | N/A | 0.9748 | **0.9740** | **[EXCELLENT]** |
+| **Mean Latency** | N/A | 1.40 ms | **0.76 ms** | **[PASS]** |
+| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **0.94 ms** | **[PASS]** |
+| **99th % Latency**| N/A | ~5.20 ms | **1.24 ms** | **[PASS]** |
 
 > [!TIP]
-> The optimized model successfully meets latency and precision objectives on the local host! The 95th percentile latency of **8.89 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
+> The optimized model successfully meets latency objectives on the local host! The 95th percentile latency of **0.94 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
 
 ---
 
