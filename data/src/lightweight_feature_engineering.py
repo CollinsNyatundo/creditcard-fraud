@@ -53,12 +53,12 @@ def save_datasets(train_df, val_df, test_df):
     feature_cols = [col for col in common_cols if col not in ['Class', 'Time']]
     print(f"Saving datasets with {len(feature_cols)} features...")
     # Save datasets
-    train_df.to_csv('./data/processed/train_enhanced.csv', index=False)
-    val_df.to_csv('./data/processed/val_enhanced.csv', index=False)
-    test_df.to_csv('./data/processed/test_enhanced.csv', index=False)
+    train_df.to_csv('./data/processed/train_enhanced_lite.csv', index=False)
+    val_df.to_csv('./data/processed/val_enhanced_lite.csv', index=False)
+    test_df.to_csv('./data/processed/test_enhanced_lite.csv', index=False)
     # Save feature list
     import json
-    with open('./models/feature_list.json', 'w') as f:
+    with open('./models/feature_list_lite.json', 'w') as f:
         json.dump(feature_cols, f)
     print("Datasets saved successfully.")
 def main():

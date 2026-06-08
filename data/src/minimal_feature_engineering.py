@@ -21,13 +21,13 @@ def main():
         df['amt_v1'] = df['Amount'] * df['V1']
         print(f"{name} shape: {df.shape}")
     # Save datasets
-    train_df.to_csv('./data/processed/train_enhanced.csv', index=False)
-    val_df.to_csv('./data/processed/val_enhanced.csv', index=False)
-    test_df.to_csv('./data/processed/test_enhanced.csv', index=False)
+    train_df.to_csv('./data/processed/train_enhanced_minimal.csv', index=False)
+    val_df.to_csv('./data/processed/val_enhanced_minimal.csv', index=False)
+    test_df.to_csv('./data/processed/test_enhanced_minimal.csv', index=False)
     # Save feature list
     feature_cols = [col for col in train_df.columns if col not in ['Class', 'Time']]
     import json
-    with open('./models/feature_list.json', 'w') as f:
+    with open('./models/feature_list_minimal.json', 'w') as f:
         json.dump(feature_cols, f)
     print("Done!")
 if __name__ == "__main__":
