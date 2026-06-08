@@ -97,5 +97,5 @@ During our deep dive, we resolved critical obstacles that blocked local executio
 
 To ensure the product is easily shippable and runs consistently across all environments, we added the following container files:
 
-*   **[Dockerfile](Dockerfile)**: Uses a lightweight `python:3.11-slim` base image, installs native compiler tools and `libgomp1` (required for LightGBM CPU training), sets up the working directory as `/app/realtime_credit_card_1507` (guaranteeing compatibility with any container-based tool), installs the virtual environment requirements, and runs validation on startup.
-*   **[docker-compose.yml](docker-compose.yml)**: Defines a pipeline service that builds the Dockerfile and mounts the workspace folder. This mounts model training logs, evaluation JSONs, and charts directly onto the host filesystem.
+*   **[Dockerfile](Dockerfile)**: Uses a lightweight `python:3.11-slim` base image, installs native compiler tools and `libgomp1` (required for LightGBM CPU training), sets up the working directory as `/app`, configures a non-root `appuser` and `HEALTHCHECK` for security hardening, installs the dependencies, and runs validation on startup.
+*   **[docker-compose.yml](docker-compose.yml)**: Defines a pipeline service that builds the Dockerfile, sets environmental variables, and mounts the workspace folder to `/app` (allowing model training logs, evaluation JSONs, and charts to persist directly onto the host filesystem).

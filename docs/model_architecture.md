@@ -65,15 +65,16 @@ params = {
     'objective': 'binary',
     'metric': 'binary_logloss',
     'boosting_type': 'gbdt',
-    'n_estimators': trial.suggest_int('n_estimators', 50, 250),
-    'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.2),
-    'num_leaves': trial.suggest_int('num_leaves', 15, 63),
-    'max_depth': trial.suggest_int('max_depth', 3, 8),
-    'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
+    'num_leaves': trial.suggest_int('num_leaves', 20, 100),
+    'max_depth': trial.suggest_int('max_depth', 3, 10),
+    'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1),
+    'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
     'subsample': trial.suggest_float('subsample', 0.6, 1.0),
     'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
-    'reg_alpha': trial.suggest_float('reg_alpha', 1e-3, 10.0, log=True),
-    'reg_lambda': trial.suggest_float('reg_lambda', 1e-3, 10.0, log=True)
+    'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+    'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+    'verbose': -1,
+    'random_state': 42
 }
 ```
 
@@ -83,7 +84,7 @@ params = {
 
 The final serialized model artifact `optimized_lightgbm.pkl` is loaded along with the feature list `feature_list.json`. During inference:
 - Raw transaction data is preprocessed to recreate the identical 72 features in the same order.
-- Inference output uses a calibrated decision threshold of **0.4200** to maximize F1 classification performance.
+- Inference output uses a calibrated decision threshold of **0.7600** to maximize F1 classification performance.
 
 ---
 
@@ -181,7 +182,7 @@ Deploying machine learning models for real-time financial decisions carries high
 ### A. False Positive and False Negative Stakes
 - **False Positives (Precision)**: A false positive occurs when a legitimate transaction is classified as fraud. In production, this leads to immediate transactional friction (e.g., declined cards at POS, checkout abandonment). Repeated false positives can cause customer churn, brand damage, and consumer exclusion from essential services.
 - **False Negatives (Recall)**: A false negative occurs when an actual fraud transaction is allowed. This results in direct financial loss (chargebacks) and undermines consumer trust in the payment network.
-- **Calibrated Decision Boundary**: Our decision threshold of **0.4200** was selected to balance precision and recall to optimize both financial protection and customer experience, rather than blindly chasing a single metric.
+- **Calibrated Decision Boundary**: Our decision threshold of **0.7600** was selected to balance precision and recall to optimize both financial protection and customer experience, rather than blindly chasing a single metric.
 
 ### B. Safeguards and Human-in-the-Loop Oversight
 - **No Fully Automated Declines**: The pipeline should not be deployed as an autonomous, un-appealable blocker. Highly suspicious transactions (e.g., probability > 0.85) may be temporarily held, but should trigger quick alerts for user confirmation (SMS/push notification) or secondary human analyst review.
