@@ -1,7 +1,8 @@
 {
     "project_overview": {
         "total_files": 42,
-        "project_path": "/app/realtime_credit_card_1507"
+        "container_project_path": "/app",
+        "host_project_path": "."
     },
     "file_categories": {
         "python_scripts": {

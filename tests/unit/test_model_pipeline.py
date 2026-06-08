@@ -109,3 +109,35 @@ def test_latency_single_row():
     assert elapsed_ms < 100, (
         f"Single-row inference took {elapsed_ms:.1f} ms — expected < 100 ms"
     )
+
+
+def test_booster_prediction():
+    """Verify that lightgbm.Booster predict works on raw model format and returns probabilities."""
+    import lightgbm as lgb
+    import joblib
+    import tempfile
+
+    X, y = make_tiny_dataset(n=100, n_features=5)
+    train_data = lgb.Dataset(X, label=y)
+    params = {
+        'objective': 'binary',
+        'metric': 'binary_logloss',
+        'verbose': -1,
+        'num_leaves': 4
+    }
+    booster = lgb.train(params, train_data, num_boost_round=5)
+
+    proba = booster.predict(X)
+    assert proba.shape == (100,), f"Expected shape (100,), got {proba.shape}"
+    assert np.all(proba >= 0.0) and np.all(proba <= 1.0)
+
+    with tempfile.NamedTemporaryFile(suffix='.pkl', delete=False) as f:
+        tmp_path = f.name
+    try:
+        joblib.dump(booster, tmp_path)
+        loaded_booster = joblib.load(tmp_path)
+        assert isinstance(loaded_booster, lgb.Booster)
+        proba_loaded = loaded_booster.predict(X)
+        np.testing.assert_array_equal(proba, proba_loaded)
+    finally:
+        os.unlink(tmp_path)
