@@ -112,12 +112,16 @@ def optimize_threshold(y_true, y_pred_proba):
     optimal_idx = np.argmax(f1_scores)
     optimal_threshold = thresholds[optimal_idx]
     return optimal_threshold, f1_scores[optimal_idx]
-def evaluate_model(model, X_test, y_test, feature_cols):
+def evaluate_model(model, X_val, y_val, X_test, y_test, feature_cols):
     """Evaluate model performance and measure latency"""
     print("Evaluating final model...")
-    # Predictions
+    # Optimize threshold on validation set (no leakage)
+    y_val_proba = model.predict(X_val[feature_cols], num_iteration=model.best_iteration)
+    optimal_threshold, _ = optimize_threshold(y_val, y_val_proba)
+    print(f"Optimal threshold found on validation set: {optimal_threshold:.4f}")
+    
+    # Evaluate on test set using the validation-optimized threshold
     y_pred_proba = model.predict(X_test[feature_cols], num_iteration=model.best_iteration)
-    optimal_threshold, _ = optimize_threshold(y_test, y_pred_proba)
     y_pred = (y_pred_proba >= optimal_threshold).astype(int)
     # Calculate metrics
     f1 = f1_score(y_test, y_pred)
@@ -187,7 +191,7 @@ def main():
         callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False)]
     )
     # Evaluate model
-    results = evaluate_model(final_model, X_test, y_test, feature_cols)
+    results = evaluate_model(final_model, X_val, y_val, X_test, y_test, feature_cols)
     print("\n=== MODEL EVALUATION RESULTS ===")
     print(f"F1 Score: {results['f1_score']:.4f}")
     print(f"Precision: {results['precision']:.4f}")
