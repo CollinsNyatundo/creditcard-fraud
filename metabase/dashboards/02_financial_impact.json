@@ -1,0 +1,21 @@
+{
+  "name": "Financial Impact Dashboard",
+  "description": "Dollar value of blocked fraud, estimated net savings vs false positive costs, and monthly blocked trend.",
+  "cards": [
+    {
+      "name": "Blocked Fraud Value (30d)",
+      "query": "SELECT COALESCE(SUM(amount), 0.0) AS blocked_amount_usd FROM predictions WHERE is_flagged = true AND created_at >= NOW() - INTERVAL '30 days'",
+      "display": "scalar"
+    },
+    {
+      "name": "Net Savings vs FP Cost (30d)",
+      "query": "SELECT COALESCE(SUM(CASE WHEN is_flagged = true AND fraud_probability >= 0.90 THEN amount ELSE 0 END), 0.0) - COUNT(CASE WHEN is_flagged = true AND fraud_probability < 0.90 THEN 1 END) * 50.0 AS net_savings_usd FROM predictions WHERE created_at >= NOW() - INTERVAL '30 days'",
+      "display": "scalar"
+    },
+    {
+      "name": "Monthly Blocked Value Trend",
+      "query": "SELECT date_trunc('month', created_at) AS month, COALESCE(SUM(amount), 0.0) AS blocked_amount_usd FROM predictions WHERE is_flagged = true GROUP BY month ORDER BY month",
+      "display": "bar"
+    }
+  ]
+}

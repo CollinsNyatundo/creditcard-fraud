@@ -5,7 +5,7 @@ PIP = pip
 PYTEST = pytest
 FLAKE8 = flake8
 
-.PHONY: setup run-pipeline test lint docker-build clean help
+.PHONY: setup run-pipeline test lint docker-build clean help up down migrate setup-metabase stack
 
 help:
 	@echo "Available targets:"
@@ -15,6 +15,11 @@ help:
 	@echo "  lint          - Run flake8 style checks on all source and test files"
 	@echo "  docker-build  - Build the production-grade Docker image"
 	@echo "  clean         - Clean python cache files and test artifacts"
+	@echo "  up            - Start docker compose services and wait for PG readiness"
+	@echo "  down          - Stop and remove docker compose containers"
+	@echo "  migrate       - Run Alembic database migrations"
+	@echo "  setup-metabase- Provision Metabase connection and dashboards"
+	@echo "  stack         - Full orchestration setup (up + migrate + setup-metabase)"
 
 setup:
 	$(PIP) install --upgrade pip
@@ -41,3 +46,24 @@ clean:
 	# Recursive cleaning of pycache files (compatible with POSIX shells)
 	-find . -type d -name "__pycache__" -exec rm -rf {} +
 	-find . -type f -name "*.pyc" -delete
+
+up:
+	docker compose up -d
+	@echo "Waiting for postgres to be healthy..."
+	@until docker compose exec postgres pg_isready -U fraud_user -d fraud_db; do sleep 1; done
+	@echo "All services up."
+
+down:
+	docker compose down
+
+migrate:
+	alembic upgrade head
+	@echo "Migrations complete."
+
+setup-metabase:
+	$(PYTHON) scripts/setup_metabase.py
+	@echo "Metabase provisioned."
+
+stack: up migrate setup-metabase
+	@echo "Full stack ready."
+

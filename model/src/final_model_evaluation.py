@@ -203,6 +203,11 @@ def main():
     # Align and prepare test features
     X_test_final = prepare_features(X_test)
 
+    # Run post-training feature explanations coverage check
+    from model.src.feature_coverage_check import check_feature_explanations_coverage
+    print("Running post-training feature explanations coverage check...")
+    check_feature_explanations_coverage(list(X_test_final.columns))
+
     # Evaluate model performance
     metrics, y_pred_proba = evaluate_model_performance(model, X_test_final, y_test, threshold)
 

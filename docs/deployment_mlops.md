@@ -103,3 +103,45 @@ This script performs a 3-step check:
 1. **Model Validation**: Confirms model weights can be deserialized (`optimized_lightgbm.pkl`) and feature alignment matches the expected signature (72 features).
 2. **Latency Benchmarking**: Performs 1,000 single transaction inference runs, recording latency in a high-resolution timer to output mean, median, 95th, and 99th percentile metrics.
 3. **Accuracy Verification**: Calculates the model's F1-score, Precision, Recall, and ROC AUC on the test dataset and outputs a JSON summary to `./reports/end_to_end_optimized_results.json`.
+
+---
+
+## 4. Running the Production Stack
+
+### One-Command Start
+
+```bash
+cp .env.example .env          # Fill in real values
+make stack                    # Starts all services, migrates DB, provisions Metabase
+```
+
+### Services & Ports
+
+| Service   | URL                      | Purpose                      |
+|-----------|--------------------------|------------------------------|
+| API       | http://localhost:8000    | `/predict`, `/stream`, `/health` |
+| MLflow    | http://localhost:5001    | Experiment tracking, model registry |
+| Metabase  | http://localhost:3000    | Business dashboards          |
+| PostgreSQL| localhost:5432           | Predictions ledger           |
+| Redis     | localhost:6379           | Feature cache, WAL, Pub/Sub  |
+
+### Running the Smoke Test
+
+```bash
+# In Windows PowerShell:
+$env:RUN_INTEGRATION_TESTS="true"
+.venv\Scripts\pytest tests/integration/test_full_stack_smoke.py -v
+
+# In Bash / Linux:
+RUN_INTEGRATION_TESTS=true .venv/bin/pytest tests/integration/test_full_stack_smoke.py -v
+```
+
+### Adding a New API Key
+
+To manually insert a new API key for `/predict` authorization, hash the raw API key with SHA-256 and insert it into the database:
+
+```sql
+INSERT INTO api_keys (key_hash, label, is_active)
+VALUES (encode(sha256('your-raw-key'::bytea), 'hex'), 'my-key-label', true);
+```
+
