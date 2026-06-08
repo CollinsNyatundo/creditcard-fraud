@@ -1,41 +1,80 @@
-"""Dead Letter Queue worker — drains queue:prediction_logs into PostgreSQL.
-
-Design decision reference: S-1 (WAL buffering pattern for async DB writes).
-
-Full implementation: Phase 2 (inference path).
-
-This stub starts the event loop and logs a ready message so the
-Docker container exits cleanly in Phase 1 without crashing the
-docker-compose stack.
-
-Phase 2 will replace this with:
-    1. Infinite loop polling redis.blpop("queue:prediction_logs")
-    2. Exponential backoff PostgreSQL writes (max 3 retries)
-    3. On all retries exhausted: re-enqueue to DLQ Celery task
-    4. prometheus_client counter: prediction_log_failures_total
-"""
+"""DLQ drain worker: pops from Redis WAL, writes to PostgreSQL with retries. Resolution: S-1."""
 import asyncio
+import json
 import logging
-import os
+import sqlalchemy as sa
+import redis.asyncio as aioredis
+from app.db.engine import AsyncSessionLocal
+from app.services.redis_cache import get_redis
+from app.services.prediction_writer import WAL_KEY
 
-from dotenv import load_dotenv
-
-load_dotenv()
-
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+DLQ_KEY = "queue:prediction_logs:dlq"
+MAX_RETRIES = 3
+RETRY_BACKOFF_BASE = 0.5  # seconds
+
+
+async def write_prediction(payload: dict) -> None:
+    """Insert prediction payload into predictions table."""
+    async with AsyncSessionLocal() as session:
+        async with session.begin():
+            # Parse ISO datetime string to python datetime object for SQLAlchemy/asyncpg
+            from datetime import datetime
+            created_at_str = payload.get("created_at")
+            if created_at_str:
+                if created_at_str.endswith("Z"):
+                    created_at_str = created_at_str[:-1] + "+00:00"
+                payload["created_at"] = datetime.fromisoformat(created_at_str)
+            else:
+                payload["created_at"] = datetime.now()
+
+            await session.execute(
+                sa.text("""
+                    INSERT INTO predictions
+                      (id, card_id, amount, fraud_probability, is_flagged,
+                       threshold_used, latency_ms, created_at)
+                    VALUES
+                      (:id, :card_id, :amount, :fraud_probability, :is_flagged,
+                       :threshold_used, :latency_ms, :created_at)
+                    ON CONFLICT (id) DO NOTHING
+                """),
+                payload,
+            )
+
+
+async def drain_loop(redis: aioredis.Redis) -> None:
+    """Infinite loop draining prediction logs from Redis to PG."""
+    while True:
+        try:
+            raw = await redis.blpop(WAL_KEY, timeout=5)
+            if raw is None:
+                continue
+            _, item = raw
+            payload = json.loads(item)
+            for attempt in range(MAX_RETRIES):
+                try:
+                    await write_prediction(payload)
+                    break
+                except Exception as exc:
+                    logger.warning("DB write attempt %d failed: %s", attempt + 1, exc)
+                    if attempt < MAX_RETRIES - 1:
+                        await asyncio.sleep(RETRY_BACKOFF_BASE * (2 ** attempt))
+                    else:
+                        logger.error("Max retries exceeded — sending to DLQ: %s", payload.get("id"))
+                        await redis.rpush(DLQ_KEY, item)
+        except asyncio.CancelledError:
+            logger.info("Drain loop cancelled.")
+            raise
+        except Exception as e:
+            logger.error("Error in drain loop: %s", e)
+            await asyncio.sleep(1.0)
 
 
 async def main() -> None:
-    """DLQ worker entry point (Phase 1 stub)."""
-    logger.info("DLQ worker started — awaiting Phase 2 implementation.")
-    logger.info(
-        "Redis URL: %s",
-        os.environ.get("REDIS_URL", "not configured"),
-    )
-    # Phase 1: keep alive so docker-compose health checks pass
-    while True:
-        await asyncio.sleep(60)
+    logging.basicConfig(level=logging.INFO)
+    redis = await get_redis()
+    logger.info("DLQ worker started — draining %s", WAL_KEY)
+    await drain_loop(redis)
 
 
 if __name__ == "__main__":

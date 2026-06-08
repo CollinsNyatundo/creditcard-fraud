@@ -34,8 +34,9 @@ async def push_card_amount(
     redis: aioredis.Redis,
     card_id: str,
     amount: float,
+    timestamp: float | None = None,
 ) -> None:
-    """Atomically push a transaction amount and hard-cap the list.
+    """Atomically push a transaction amount (with optional timestamp) and hard-cap the list.
 
     Guarantees: len(card:{card_id}:history) <= WINDOW_SIZE at all times,
     regardless of transaction volume. Safe under concurrent callers.
@@ -44,10 +45,12 @@ async def push_card_amount(
         redis: An async Redis client instance.
         card_id: Unique card identifier (used as part of the Redis key).
         amount: Transaction amount to append to the card's history.
+        timestamp: Optional transaction timestamp.
     """
     key: str = f"card:{card_id}:history"
+    val = f"{amount}:{timestamp}" if timestamp is not None else str(amount)
     async with redis.pipeline(transaction=True) as pipe:
-        pipe.rpush(key, str(amount))
+        pipe.rpush(key, val)
         pipe.ltrim(key, -WINDOW_SIZE, -1)
         pipe.expire(key, TTL_SECONDS)
         await pipe.execute()
@@ -68,7 +71,32 @@ async def get_card_history(
     """
     key: str = f"card:{card_id}:history"
     raw: list[str] = await redis.lrange(key, 0, -1)
-    return [float(x) for x in raw]
+    return [float(x.split(":")[0]) if ":" in x else float(x) for x in raw]
+
+
+async def get_card_history_with_timestamps(
+    redis: aioredis.Redis,
+    card_id: str,
+) -> list[tuple[float, float]]:
+    """Return up to WINDOW_SIZE recent transaction amounts and timestamps for a card.
+
+    Args:
+        redis: An async Redis client instance.
+        card_id: Unique card identifier.
+
+    Returns:
+        List of (amount, timestamp) tuples (oldest → newest), length 0–WINDOW_SIZE.
+    """
+    key: str = f"card:{card_id}:history"
+    raw: list[str] = await redis.lrange(key, 0, -1)
+    result = []
+    for x in raw:
+        if ":" in x:
+            parts = x.split(":")
+            result.append((float(parts[0]), float(parts[1])))
+        else:
+            result.append((float(x), 0.0))
+    return result
 
 
 async def push_to_prediction_log_queue(

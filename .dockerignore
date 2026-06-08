@@ -54,6 +54,7 @@ data/processed/
 
 # ─── Model Binaries (fetched from MLflow at startup) ─────────────────────────
 models/*.pkl
+!models/preprocessor.pkl
 models/*.bin
 
 # ─── Test & QA Files (not needed inside the image) ───────────────────────────
