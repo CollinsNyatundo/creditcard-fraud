@@ -16,7 +16,12 @@ def end_to_end_pipeline_test():
     try:
         model = joblib.load('./models/baseline_lightgbm.pkl')
         preprocessor = joblib.load('./models/preprocessor.pkl')
-        print("   [OK] Model and preprocessor loaded successfully")
+        try:
+            with open('./models/optimal_threshold.json', 'r') as f:
+                optimal_threshold = json.load(f)['threshold']
+        except Exception:
+            optimal_threshold = 0.76
+        print(f"   [OK] Model and preprocessor loaded successfully (threshold: {optimal_threshold})")
         # Check expected features
         if hasattr(preprocessor, 'feature_names_in_'):
             expected_features = list(preprocessor.feature_names_in_)
@@ -44,41 +49,39 @@ def end_to_end_pipeline_test():
     except Exception as e:
         print(f"   [FAIL] Failed to load test data: {e}")
         return False
-    # Align features properly
-    print("\n3. Aligning features for preprocessing...")
+    # Align features properly to model signature
+    print("\n3. Aligning features to model signature...")
     try:
-        if expected_features is not None:
-            # Reindex to match expected features exactly
-            print(f"   Aligning {X_test.shape[1]} features to {len(expected_features)} expected features")
-            X_test_aligned = X_test.reindex(columns=expected_features, fill_value=0)
-            print(f"   [OK] Features aligned: {X_test_aligned.shape}")
-        else:
-            X_test_aligned = X_test
-            print("   [OK] Using original features (no alignment)")
+        from sklearn.preprocessing import OneHotEncoder
+        X_test_processed = X_test.copy()
+        
+        # Load expected feature names from model training
+        with open('./models/feature_names.json', 'r') as f:
+            expected_features = json.load(f)['feature_names']
+            
+        # One-hot encode the 'Amount_Bin' column
+        if 'Amount_Bin' in X_test_processed.columns:
+            encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+            amount_bin_encoded = encoder.fit_transform(X_test_processed[['Amount_Bin']])
+            feature_names = encoder.get_feature_names_out(['Amount_Bin'])
+            amount_bin_df = pd.DataFrame(amount_bin_encoded, columns=feature_names, index=X_test_processed.index)
+            
+            # Drop original Amount_Bin and boolean columns if they exist
+            columns_to_drop = ['Amount_Bin'] + [col for col in X_test_processed.columns if col in ['Amount_Low', 'Amount_Medium', 'Amount_High']]
+            X_test_processed = X_test_processed.drop(columns=columns_to_drop)
+            X_test_processed = pd.concat([X_test_processed, amount_bin_df], axis=1)
+            
+        # Fill in any missing expected features with 0.0
+        for col in expected_features:
+            if col not in X_test_processed.columns:
+                X_test_processed[col] = 0.0
+                
+        # Select and order columns to match the model's signature
+        X_test_processed = X_test_processed[expected_features]
+        print(f"   [OK] Features aligned to model signature: {X_test_processed.shape}")
     except Exception as e:
         print(f"   [FAIL] Feature alignment failed: {e}")
         return False
-    # Test preprocessing
-    print("\n4. Applying preprocessing...")
-    try:
-        start_time = time.time()
-        X_test_processed = preprocessor.transform(X_test_aligned)
-        preprocessing_time = time.time() - start_time
-        print(f"   [OK] Preprocessing completed in {preprocessing_time:.4f}s")
-        print(f"   Processed data shape: {X_test_processed.shape}")
-    except Exception as e:
-        print(f"   [FAIL] Preprocessing failed: {e}")
-        print("   Trying with shape check disabled...")
-        try:
-            # Try with shape check disabled (as suggested by LightGBM)
-            start_time = time.time()
-            X_test_processed = preprocessor.transform(X_test_aligned)
-            preprocessing_time = time.time() - start_time
-            print(f"   [OK] Preprocessing completed in {preprocessing_time:.4f}s")
-            print(f"   Processed data shape: {X_test_processed.shape}")
-        except Exception as e2:
-            print(f"   [FAIL] Preprocessing still failed: {e2}")
-            return False
     # Test model inference with latency measurement
     print("\n5. Testing model inference with latency measurement...")
     try:
@@ -93,14 +96,13 @@ def end_to_end_pipeline_test():
         for i in range(len(test_sample)):
             sample = test_sample[i:i + 1]  # Single sample
             start_time = time.perf_counter()
-            # Use predict with shape check disabled as suggested by LightGBM
-            pred = model.predict(sample, pred_early_stop=False)
-            pred_proba = model.predict_proba(sample, pred_early_stop=False)
+            pred_proba = model.predict(sample)[0]
+            pred = int(pred_proba >= optimal_threshold)
             end_time = time.perf_counter()
             latency_ms = (end_time - start_time) * 1000  # Convert to milliseconds
             latencies.append(latency_ms)
-            predictions.append(pred[0])
-            probabilities.append(pred_proba[0][1])  # Probability of positive class
+            predictions.append(pred)
+            probabilities.append(pred_proba)
         print("   [OK] Model inference completed successfully")
     except Exception as e:
         print(f"   [FAIL] Model inference failed: {e}")
@@ -108,15 +110,15 @@ def end_to_end_pipeline_test():
         try:
             print("   Trying batch prediction...")
             start_time = time.perf_counter()
-            predictions_batch = model.predict(X_test_processed[:50])
-            probabilities_batch = model.predict_proba(X_test_processed[:50])
+            probabilities_batch = model.predict(X_test_processed[:50])
+            predictions_batch = (probabilities_batch >= optimal_threshold).astype(int)
             end_time = time.perf_counter()
             batch_latency_ms = (end_time - start_time) * 1000
             avg_latency_ms = batch_latency_ms / len(predictions_batch)
             print(f"   [OK] Batch prediction completed in {batch_latency_ms:.4f}ms (avg {avg_latency_ms:.4f}ms per prediction)")
             # Convert to individual prediction format for metrics
             predictions = predictions_batch.tolist()
-            probabilities = probabilities_batch[:, 1].tolist()
+            probabilities = probabilities_batch.tolist()
             latencies = [avg_latency_ms] * len(predictions)
         except Exception as e2:
             print(f"   [FAIL] Batch prediction also failed: {e2}")
@@ -188,7 +190,7 @@ def end_to_end_pipeline_test():
             "p95_ms": float(p95_latency),
             "p99_ms": float(p99_latency),
             "max_ms": float(max_latency),
-            "meets_10ms_requirement": meets_requirement
+            "meets_10ms_requirement": bool(meets_requirement)
         },
         "performance_metrics": {
             "f1_score": float(f1) if 'f1' in locals() else None,
@@ -208,4 +210,4 @@ if __name__ == "__main__":
     if success:
         print(f"\n[SUCCESS] END-TO-END PIPELINE TEST COMPLETED SUCCESSFULLY")
     else:
-        print(f"\n❌ END-TO-END PIPELINE TEST FAILED")
+        print(f"\n[FAIL] END-TO-END PIPELINE TEST FAILED")

@@ -87,7 +87,7 @@ def test_common_libraries():
     return results
 def test_project_scripts():
     """Test all project Python scripts"""
-    project_root = "/app/realtime_credit_card_1507"
+    project_root = os.getenv("PROJECT_ROOT", str(Path(__file__).resolve().parent.parent))
     script_results = {}
     # Find all Python files in the project
     python_files = []

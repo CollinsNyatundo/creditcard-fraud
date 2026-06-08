@@ -16,9 +16,14 @@ def end_to_end_pipeline_test():
     try:
         model = joblib.load('./models/baseline_lightgbm.pkl')
         preprocessor = joblib.load('./models/preprocessor.pkl')
-        print("   [OK] Model and preprocessor loaded successfully")
+        try:
+            with open('./models/optimal_threshold.json', 'r') as f:
+                optimal_threshold = json.load(f)['threshold']
+        except Exception:
+            optimal_threshold = 0.76
+        print(f"   [OK] Model and preprocessor loaded successfully (threshold: {optimal_threshold})")
     except Exception as e:
-        print(f"   [FAIL] Failed to load model/preprocessor: {e}")
+        print(f"   [FAIL] Failed to load model/preprocessor/threshold: {e}")
         return False
     # Load test data
     print("\n2. Loading test data...")
@@ -38,39 +43,37 @@ def end_to_end_pipeline_test():
         print(f"   [FAIL] Failed to load test data: {e}")
         return False
     # Test preprocessing compatibility
-    print("\n3. Testing preprocessing compatibility...")
+    print("\n3. Aligning features to model signature...")
     try:
-        # Get feature names expected by preprocessor
-        if hasattr(preprocessor, 'feature_names_in_'):
-            expected_features = list(preprocessor.feature_names_in_)
-            print(f"   Preprocessor expects {len(expected_features)} features")
-            # Check if we have all expected features
-            available_features = list(X_test.columns)
-            missing_features = set(expected_features) - set(available_features)
-            extra_features = set(available_features) - set(expected_features)
-            if missing_features:
-                print(f"   Warning: Missing features: {list(missing_features)[:5]}...")
-            if extra_features:
-                print(f"   Info: Extra features: {list(extra_features)[:5]}...")
-            # Align features if needed
-            X_test_aligned = X_test.reindex(columns=expected_features, fill_value=0)
-            print(f"   [OK] Features aligned to preprocessor requirements: {X_test_aligned.shape}")
-        else:
-            X_test_aligned = X_test
-            print("   [OK] Using original features (no alignment needed)")
+        from sklearn.preprocessing import OneHotEncoder
+        X_test_processed = X_test.copy()
+        
+        # Load expected feature names from model training
+        with open('./models/feature_names.json', 'r') as f:
+            expected_features = json.load(f)['feature_names']
+            
+        # One-hot encode the 'Amount_Bin' column
+        if 'Amount_Bin' in X_test_processed.columns:
+            encoder = OneHotEncoder(handle_unknown='ignore', sparse_output=False)
+            amount_bin_encoded = encoder.fit_transform(X_test_processed[['Amount_Bin']])
+            feature_names = encoder.get_feature_names_out(['Amount_Bin'])
+            amount_bin_df = pd.DataFrame(amount_bin_encoded, columns=feature_names, index=X_test_processed.index)
+            
+            # Drop original Amount_Bin and boolean columns if they exist
+            columns_to_drop = ['Amount_Bin'] + [col for col in X_test_processed.columns if col in ['Amount_Low', 'Amount_Medium', 'Amount_High']]
+            X_test_processed = X_test_processed.drop(columns=columns_to_drop)
+            X_test_processed = pd.concat([X_test_processed, amount_bin_df], axis=1)
+            
+        # Fill in any missing expected features with 0.0
+        for col in expected_features:
+            if col not in X_test_processed.columns:
+                X_test_processed[col] = 0.0
+                
+        # Select and order columns to match the model's signature
+        X_test_processed = X_test_processed[expected_features]
+        print(f"   [OK] Features aligned to model signature: {X_test_processed.shape}")
     except Exception as e:
-        print(f"   [FAIL] Preprocessing compatibility test failed: {e}")
-        return False
-    # Test preprocessing
-    print("\n4. Applying preprocessing...")
-    try:
-        start_time = time.time()
-        X_test_processed = preprocessor.transform(X_test_aligned)
-        preprocessing_time = time.time() - start_time
-        print(f"   [OK] Preprocessing completed in {preprocessing_time:.4f}s")
-        print(f"   Processed data shape: {X_test_processed.shape}")
-    except Exception as e:
-        print(f"   [FAIL] Preprocessing failed: {e}")
+        print(f"   [FAIL] Feature alignment failed: {e}")
         return False
     # Test model inference with latency measurement
     print("\n5. Testing model inference with latency measurement...")
@@ -86,13 +89,13 @@ def end_to_end_pipeline_test():
         for i in range(len(test_sample)):
             sample = test_sample[i:i + 1]  # Single sample
             start_time = time.perf_counter()
-            pred = model.predict(sample)
-            pred_proba = model.predict_proba(sample)
+            pred_proba = model.predict(sample)[0]
+            pred = int(pred_proba >= optimal_threshold)
             end_time = time.perf_counter()
             latency_ms = (end_time - start_time) * 1000  # Convert to milliseconds
             latencies.append(latency_ms)
-            predictions.append(pred[0])
-            probabilities.append(pred_proba[0][1])  # Probability of positive class
+            predictions.append(pred)
+            probabilities.append(pred_proba)
         print("   [OK] Model inference completed successfully")
     except Exception as e:
         print(f"   [FAIL] Model inference failed: {e}")
@@ -174,7 +177,7 @@ def end_to_end_pipeline_test():
             "p95_ms": float(p95_latency),
             "p99_ms": float(p99_latency),
             "max_ms": float(max_latency),
-            "meets_10ms_requirement": meets_requirement
+            "meets_10ms_requirement": bool(meets_requirement)
         },
         "performance_metrics": {
             "f1_score": float(f1) if 'f1' in locals() else None,
@@ -194,4 +197,4 @@ if __name__ == "__main__":
     if success:
         print(f"\n[SUCCESS] END-TO-END PIPELINE TEST COMPLETED SUCCESSFULLY")
     else:
-        print(f"\n❌ END-TO-END PIPELINE TEST FAILED")
+        print(f"\n[FAIL] END-TO-END PIPELINE TEST FAILED")

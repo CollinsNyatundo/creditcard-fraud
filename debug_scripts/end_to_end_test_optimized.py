@@ -149,7 +149,11 @@ def run_optimized_pipeline_test():
     print("\n6. Saving test results...")
     try:
         results = {
+            "schema_version": 1,
             "timestamp": pd.Timestamp.now().isoformat(),
+            "generated_at": pd.Timestamp.now().isoformat(),
+            "source_script": "debug_scripts/end_to_end_test_optimized.py",
+            "artifact_of": "creditcard-fraud-pipeline",
             "metrics": {
                 "f1_score": float(f1),
                 "precision": float(precision),

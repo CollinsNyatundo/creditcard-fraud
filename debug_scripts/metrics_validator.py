@@ -88,7 +88,7 @@ def validate_model_evaluation_metrics():
         for issue in issues:
             print(f"  - {issue}")
     else:
-        print(f"\n✅ ALL METRICS APPEAR REASONABLE")
+        print(f"\n[OK] ALL METRICS APPEAR REASONABLE")
     # Compare with optimized results
     print(f"\n" + "=" * 60)
     print("COMPARISON WITH OPTIMIZED RESULTS")
@@ -98,23 +98,23 @@ def validate_model_evaluation_metrics():
     print(f"Optimized F1 Score: {opt_f1:.4f}")
     print(f"Improvement: {opt_f1 - current_f1:.4f}")
     if opt_f1 > current_f1:
-        print("✅ Optimized model shows improvement")
+        print("[OK] Optimized model shows improvement")
     else:
         print("[WARN]  Optimized model does not show improvement")
     # Check latency vs requirements
     if current_latency < target_latency:
-        print(f"✅ 95th percentile latency ({current_latency:.2f} ms) meets requirement (< {target_latency} ms)")
+        print(f"[OK] 95th percentile latency ({current_latency:.2f} ms) meets requirement (< {target_latency} ms)")
     else:
-        print(f"[WARN] 95th percentile latency ({current_latency:.2f} ms) exceeds requirement (< {target_latency} ms)")
+        print("[WARN] 95th percentile latency ({current_latency:.2f} ms) exceeds requirement (< {target_latency} ms)")
     # Summary
     print(f"\n" + "=" * 60)
     print("VALIDATION SUMMARY")
     print("=" * 60)
-    print(f"✅ Model evaluation report loaded successfully")
-    print(f"✅ Metrics are complete and properly formatted")
-    print(f"✅ All required metrics (F1, precision, recall, latency) are present")
-    print(f"✅ Metrics fall within reasonable ranges for fraud detection")
-    print(f"✅ Evaluation shows good model performance with F1=0.78")
-    print(f"✅ Latency performance meets requirements for real-time inference")
+    print(f"[OK] Model evaluation report loaded successfully")
+    print(f"[OK] Metrics are complete and properly formatted")
+    print(f"[OK] All required metrics (F1, precision, recall, latency) are present")
+    print(f"[OK] Metrics fall within reasonable ranges for fraud detection")
+    print(f"[OK] Evaluation shows good model performance with F1=0.78")
+    print(f"[OK] Latency performance meets requirements for real-time inference")
 if __name__ == "__main__":
     validate_model_evaluation_metrics()

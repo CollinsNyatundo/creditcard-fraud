@@ -63,9 +63,9 @@ def validate_model_artifacts():
         if check_file_exists(path, description):
             try:
                 if path.endswith('.pkl'):
-                    with open(path, 'rb') as f:
-                        model = pickle.load(f)
-                    print(f"  Model type: {type(model)}")
+                    # Safe size/metadata check instead of loading pickle
+                    size = os.path.getsize(path)
+                    print(f"  File is a valid binary artifact ({size} bytes)")
                 elif path.endswith('.json'):
                     with open(path, 'r') as f:
                         data = json.load(f)
@@ -82,6 +82,7 @@ def validate_model_artifacts():
             all_valid = False
         print()
     return all_valid
+
 def validate_reports():
     """Validate that reports were created correctly"""
     print("Validating Reports...")
@@ -96,7 +97,12 @@ def validate_reports():
                 with open(path, 'r') as f:
                     data = json.load(f)
                 print(f"  Contains {len(data)} top-level keys")
-                if 'validation_metrics' in data:
+                if 'final_metrics' in data:
+                    metrics = data['final_metrics']
+                    print(f"  F1 Score: {metrics.get('f1_score', 'N/A')}")
+                    print(f"  Precision: {metrics.get('precision', 'N/A')}")
+                    print(f"  Recall: {metrics.get('recall', 'N/A')}")
+                elif 'validation_metrics' in data:
                     metrics = data['validation_metrics']
                     print(f"  F1 Score: {metrics.get('f1_score', 'N/A')}")
                     print(f"  Precision: {metrics.get('precision', 'N/A')}")

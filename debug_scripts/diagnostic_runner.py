@@ -119,8 +119,8 @@ def run_final_model_evaluation_diagnostics():
                 y_test = df_test['Class']
                 print(f"Test data shape: {X_test.shape}")
                 # Test that model and preprocessor have required methods
-                if hasattr(model, 'predict') and hasattr(model, 'predict_proba'):
-                    print("Model has required prediction methods")
+                if hasattr(model, 'predict'):
+                    print("Model has required prediction method")
                 if hasattr(preprocessor, 'transform'):
                     print("Preprocessor has transform method")
             else:

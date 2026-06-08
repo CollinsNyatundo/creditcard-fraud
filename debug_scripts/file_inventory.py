@@ -1,7 +1,7 @@
 import os
 import json
 def categorize_files():
-    project_root = "/app/realtime_credit_card_1507"
+    project_root = os.getenv("PROJECT_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     # Initialize categories
     file_inventory = {
         "python_scripts": {
@@ -63,7 +63,8 @@ def categorize_files():
     return file_inventory
 def print_inventory():
     inventory = categorize_files()
-    print("=== FILE INVENTORY FOR /app/realtime_credit_card_1507 ===\n")
+    project_root = os.getenv("PROJECT_ROOT", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    print(f"=== FILE INVENTORY FOR {project_root} ===\n")
     print("PYTHON SCRIPTS:")
     print("  Data Processing:")
     for file in inventory["python_scripts"]["data_processing"]:

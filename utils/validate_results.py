@@ -57,7 +57,24 @@ def validate_artifacts():
     try:
         with open("./reports/hyperparameter_optimization.json", "r") as f:
             results = json.load(f)
-        if "validation_metrics" in results:
+        if "final_metrics" in results:
+            metrics = results["final_metrics"]
+            print("   Final Metrics:")
+            print(f"     F1 Score: {metrics.get('f1_score', 'N/A')}")
+            print(f"     Precision: {metrics.get('precision', 'N/A')}")
+            print(f"     Recall: {metrics.get('recall', 'N/A')}")
+            print(f"     ROC AUC: {metrics.get('roc_auc', 'N/A')}")
+            print(f"     Optimal Threshold: {metrics.get('optimal_threshold', 'N/A')}")
+
+            # Print latency if present in final_metrics
+            avg_lat = metrics.get('avg_latency')
+            p95_lat = metrics.get('latency_95_percentile')
+            print("   Latency Benchmark:")
+            if avg_lat is not None:
+                print(f"     Mean Single Transaction: {avg_lat * 1000:.4f} ms")
+            if p95_lat is not None:
+                print(f"     95th Percentile: {p95_lat * 1000:.4f} ms")
+        elif "validation_metrics" in results:
             metrics = results["validation_metrics"]
             print("   Validation Metrics:")
             print(f"     F1 Score: {metrics.get('f1_score', 'N/A')}")
