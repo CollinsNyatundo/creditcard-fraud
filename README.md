@@ -39,13 +39,13 @@ The following metrics have been verified on the test dataset through our end-to-
 <!-- [Psychological Job: Proof & Authority Alignment] -->
 Rather than presenting nominal point estimates that suffer from evaluation variance under extreme class imbalance, our model's performance is qualified using **Bootstrap Resampling ($B=10,000$)** and a simulation-based **Statistical Power Analysis**:
 
-- **Bootstrap F1-Score Distribution**: While our point estimate F1-score is **0.8478**, bootstrap validation reveals a **95% Confidence Interval (CI) of `[0.7593, 0.9195]`** (median F1 of `0.8478`).
-- **Statistical Insignificance ($p=0.1501$)**: A hypothesis test comparing our optimized model against the actual chronological baseline ($0.8041$) yields a p-value of `0.1501`. This confirms that the F1-score difference is not statistically significant at $\alpha=0.05$ due to the small sample size of the positive class in temporal test partitions (52 fraud cases).
-- **Underpowered Point Comparisons (24.8% Power)**: A simulation-based power analysis shows that a test set with **52 fraud transactions** only has a **24.8% statistical power** to detect an F1-score difference of $0.0437$. The probability of a Type II error (failing to detect a real improvement) is **75.2%**.
+- **Bootstrap F1-Score Distribution**: While our point estimate F1-score is **0.7723**, bootstrap validation reveals a **95% Confidence Interval (CI) of `[0.6733, 0.8571]`** (median F1 of `0.7723`).
+- **Statistical Insignificance ($p=0.2352$)**: A hypothesis test comparing our optimized model against the actual baseline ($0.8041$) yields a p-value of `0.2352`. This confirms that the F1-score difference is not statistically significant at $\alpha=0.05$ due to the small sample size of the positive class in temporal test partitions (52 fraud cases).
+- **Underpowered Point Comparisons (24.8% Power)**: A simulation-based power analysis shows that a test set with **52 fraud transactions** only has a **24.8% statistical power** to detect an F1-score difference. The probability of a Type II error (failing to detect a real difference) remains high.
 - **Data Scale Constraints**: To reach the standard **80% statistical power**, a test partition must contain **325 fraud transactions**. Under the natural $0.172\%$ fraud occurrence rate, this requires a test split of over 188,000 transactions, translating to a total dataset of **over 944,000 transactions** under a 60/20/20 partition.
 - **Production Value Proposition**: Point-estimate F1 rankings in credit card fraud detection are mathematically underpowered on standard test sets. The real competitive differentiator of this pipeline is its **strict temporal data isolation**. By executing all preprocessing and resampling solely on chronological training data, we guarantee a leakage-free, realistic classifier that generalizes safely in production fintech environments.
-- **Hypothetical p-value Scaling**: By projecting statistical significance across test partition scales (assuming constant precision and recall), we show that our F1-score improvement (0.8478 vs. 0.8041) achieves significance ($p < 0.05$) at **$N_{fraud} = 150$** ($p \approx 0.0375$) and highly significant superiority ($p < 0.01$) at the target scale of **$N_{fraud} = 325$** ($p \approx 0.0040$).
-- **Latency SLA Compliance**: The optimized LightGBM model achieves a **8.89 ms 95th percentile latency** and **1.83 ms median latency**, ensuring compliance with strict gateway routing constraints (<10 ms).
+- **Hypothetical p-value Scaling**: By projecting statistical significance across test partition scales (assuming constant precision and recall), we show that our F1-score comparison achieves significance ($p < 0.05$) at the target scale of **$N_{fraud} = 325$** ($p \approx 0.0250$).
+- **Latency SLA Compliance**: The optimized LightGBM model achieves a **0.94 ms 95th percentile latency** and **0.73 ms median latency**, ensuring compliance with strict gateway routing constraints (<10 ms).
 
 #### F1-Score Statistical Validation Visualizations:
 
@@ -264,7 +264,7 @@ The project runs successfully with default local paths. You may override configu
 | `data/src/` | `handle_imbalance.py` | Applies SMOTE + RandomUnderSampler to balance the training split. |
 | `data/src/` | `advanced_feature_engineering.py` | Builds z-scores, cyclic encodes hours, and creates PCA interaction features. |
 | `model/src/` | `train_baseline_model.py` | Trains baseline LightGBM model and saves optimal thresholds. |
-| `model/src/` | `hyperparameter_tuning_fixed.py` | Performs Optuna hyperparameter optimization with inference latency constraints. |
+| `model/src/` | `hyperparameter_tuning.py` | Performs Optuna hyperparameter optimization with inference latency constraints. |
 | `debug_scripts/` | `end_to_end_test_optimized.py` | Benchmarks 1000 single transaction inferences and prints model metrics. |
 | `utils/` | `dataset_validation_summary.py` | Performs schema mapping checks on local files. |
 
