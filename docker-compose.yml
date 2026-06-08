@@ -1,12 +1,109 @@
 version: '3.8'
 
 services:
-  pipeline:
+  api:
     build: .
-    image: creditcard-fraud-pipeline:latest
-    container_name: creditcard_fraud_container
-    volumes:
-      - .:/app/realtime_credit_card_1507
+    image: creditcard-fraud-api:latest
+    container_name: fraud_api
+    ports:
+      - "8000:8000"
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: fraud_postgres
     environment:
-      - PYTHONUNBUFFERED=1
-    command: python debug_scripts/VALIDATION_SCRIPT.py
+      POSTGRES_USER: fraud_user
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_DB: fraud_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fraud_user -d fraud_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fraud_redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-dev_password}
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-dev_password}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:v2.14.3
+    container_name: fraud_mlflow
+    ports:
+      - "5001:5000"
+    environment:
+      - MLFLOW_BACKEND_STORE_URI=postgresql://fraud_user:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/fraud_db
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=/mlflow/artifacts
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      mlflow server
+        --backend-store-uri postgresql://fraud_user:${POSTGRES_PASSWORD:-dev_password}@postgres:5432/fraud_db
+        --default-artifact-root /mlflow/artifacts
+        --host 0.0.0.0
+
+  metabase:
+    image: metabase/metabase:v0.52.4
+    container_name: fraud_metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: fraud_db
+      MB_DB_PORT: 5432
+      MB_DB_USER: fraud_user
+      MB_DB_PASS: ${POSTGRES_PASSWORD:-dev_password}
+      MB_DB_HOST: postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dlq_worker:
+    build: .
+    container_name: fraud_dlq_worker
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    command: python -m workers.dlq_worker
+
+  alert_worker:
+    build: .
+    container_name: fraud_alert_worker
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    command: python -m workers.alert_worker
+
+volumes:
+  postgres_data:
+  mlflow_artifacts:
