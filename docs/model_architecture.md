@@ -84,7 +84,7 @@ params = {
 
 The final serialized model artifact `optimized_lightgbm.pkl` is loaded along with the feature list `feature_list.json`. During inference:
 - Raw transaction data is preprocessed to recreate the identical 72 features in the same order.
-- Inference output uses a calibrated decision threshold of **0.7600** (dynamically optimized strictly on validation set predictions to prevent test labels leakage) to maximize F1 classification performance.
+- Inference output uses a calibrated decision threshold of **0.2800** (dynamically optimized strictly on validation set predictions to prevent test labels leakage) to maximize F1 classification performance.
 
 ---
 
