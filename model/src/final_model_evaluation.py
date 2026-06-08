@@ -6,6 +6,7 @@ import time
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score, average_precision_score, confusion_matrix, classification_report
 import lightgbm as lgb
+from model.src.feature_coverage_check import check_feature_explanations_coverage
 
 def load_model_and_preprocessor():
     """Load the baseline LightGBM model and preprocessor"""
@@ -204,7 +205,6 @@ def main():
     X_test_final = prepare_features(X_test)
 
     # Run post-training feature explanations coverage check
-    from model.src.feature_coverage_check import check_feature_explanations_coverage
     print("Running post-training feature explanations coverage check...")
     check_feature_explanations_coverage(list(X_test_final.columns))
 
