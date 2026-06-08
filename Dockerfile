@@ -10,15 +10,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set working directory to match the hardcoded paths in the scripts
-WORKDIR /app/realtime_credit_card_1507
+# Create non-root user and group
+RUN groupadd -g 10001 appgroup && \
+    useradd -u 10001 -g appgroup -m -s /bin/bash appuser
+
+# Set working directory
+WORKDIR /app
 
 # Copy requirements and install python packages
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --default-timeout=1000 --no-cache-dir -r requirements.txt
 
 # Copy the rest of the workspace files
 COPY . .
+
+# Change ownership of /app to appuser
+RUN chown -R appuser:appgroup /app
+
+# Add healthcheck to verify core ML libraries are functional
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD python -c "import lightgbm; import pandas; import sklearn" || exit 1
+
+# Switch to non-root user
+USER appuser
 
 # Default command is to run the validation script
 CMD ["python", "debug_scripts/VALIDATION_SCRIPT.py"]

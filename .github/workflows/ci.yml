@@ -214,6 +214,34 @@ jobs:
           print("OK: .gitignore covers required artifact patterns")
           EOF
 
+      - name: Verify .agents directory is not tracked
+        run: |
+          python - <<'EOF'
+          import subprocess, sys
+
+          res = subprocess.run(['git', 'ls-files'], capture_output=True, text=True)
+          tracked_files = res.stdout.splitlines()
+          agents_files = [f for f in tracked_files if f.startswith('.agents/')]
+          if agents_files:
+              print(f"FAIL: Detected tracked files inside .agents/ directory: {agents_files}")
+              sys.exit(1)
+          print("OK: No files in .agents/ are tracked in git")
+          EOF
+
+      - name: Verify no CSV files are tracked
+        run: |
+          python - <<'EOF'
+          import subprocess, sys
+
+          res = subprocess.run(['git', 'ls-files'], capture_output=True, text=True)
+          tracked_files = res.stdout.splitlines()
+          csv_files = [f for f in tracked_files if f.endswith('.csv')]
+          if csv_files:
+              print(f"FAIL: Detected tracked CSV files in git: {csv_files}")
+              sys.exit(1)
+          print("OK: No CSV files are tracked in git")
+          EOF
+
   # ── Docker Build Validation ───────────────────────────────────────────
   docker-build:
     name: Docker Build Validation
