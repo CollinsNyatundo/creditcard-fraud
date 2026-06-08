@@ -250,22 +250,28 @@ async def predict(
             feature_names=expected_features,
         )
 
+    # Publish transaction event to live stream Pub/Sub channel
+    from app.services.stream_publisher import publish_transaction, publish_alert
+    background_tasks.add_task(
+        publish_transaction,
+        prediction_id=prediction_id,
+        card_id=body.card_id,
+        amount=body.amount,
+        fraud_probability=prob,
+        is_flagged=is_flagged,
+        latency_ms=latency_ms,
+    )
+
     # Trigger alerts for high confidence fraud (U-1) in alert worker
     alert_threshold = await config_service.get_float("alert_threshold", default=0.90)
     if prob >= alert_threshold:
-        # Publish alert to Redis Pub/Sub in Phase 3
-        # Stub for Phase 2: we'll check if stream_publisher exists, or just log
-        try:
-            from app.services.stream_publisher import publish_alert
-            background_tasks.add_task(
-                publish_alert,
-                prediction_id=prediction_id,
-                card_id=body.card_id,
-                amount=body.amount,
-                fraud_probability=prob,
-            )
-        except ImportError:
-            pass
+        background_tasks.add_task(
+            publish_alert,
+            prediction_id=prediction_id,
+            card_id=body.card_id,
+            amount=body.amount,
+            fraud_probability=prob,
+        )
 
     return PredictResponse(
         prediction_id=prediction_id,

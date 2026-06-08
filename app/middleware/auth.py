@@ -33,6 +33,7 @@ UNAUTHENTICATED_PATHS: frozenset[str] = frozenset({
     "/docs",
     "/openapi.json",
     "/redoc",
+    "/stream",
 })
 
 

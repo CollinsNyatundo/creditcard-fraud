@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.db.engine import engine
 from app.limiter import limiter
 from app.routes.predict import router as predict_router
+from app.routes.stream import router as stream_router
 
 settings = get_settings()
 
@@ -73,6 +74,7 @@ app.add_middleware(APIKeyMiddleware)
 
 # --- Routes ---
 app.include_router(predict_router)
+app.include_router(stream_router)
 
 
 @app.get("/health", tags=["Ops"])
