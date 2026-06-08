@@ -1,7 +1,6 @@
 """POST /predict — real-time inference route. Resolution: C-1, C-4, S-3."""
 import math
 import time
-from typing import Any
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
@@ -31,7 +30,7 @@ def prepare_prediction_features(
     amount: float,
     hour: int,
     history_items: list[tuple[float, float]],
-    scaler: Any,
+    scaler: object,
     expected_features: list[str],
 ) -> pd.DataFrame:
     """Dynamically engineer and scale only the features required by the active model."""

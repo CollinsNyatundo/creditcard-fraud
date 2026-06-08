@@ -1,18 +1,17 @@
 """Runtime config loaded from system_config table with in-memory TTL cache. Resolution: C-4."""
 import asyncio
 import time
-from typing import Any
 import sqlalchemy as sa
 from app.db.engine import AsyncSessionLocal
 
 
 class ConfigService:
     def __init__(self, ttl: int = 60) -> None:
-        self._cache: dict[str, tuple[Any, float]] = {}
+        self._cache: dict[str, tuple[object, float]] = {}
         self._ttl = ttl
         self._lock = asyncio.Lock()
 
-    async def get(self, key: str, default: Any = None) -> Any:
+    async def get(self, key: str, default: object = None) -> object:
         async with self._lock:
             if key in self._cache:
                 value, expires_at = self._cache[key]
