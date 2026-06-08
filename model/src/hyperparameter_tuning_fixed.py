@@ -4,7 +4,7 @@ import lightgbm as lgb
 import optuna
 import joblib
 from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import TimeSeriesSplit
 import time
 import json
 import warnings
@@ -34,11 +34,12 @@ class LatencyConstrainedObjective:
             'verbose': -1,
             'random_state': 42
         }
-        # Cross-validation with stratified folds
-        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+        # Cross-validation with TimeSeriesSplit folds
+        tscv = TimeSeriesSplit(n_splits=3)
         f1_scores = []
         latencies = []
-        for fold, (train_idx, val_idx) in enumerate(skf.split(self.X_train, self.y_train)):
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(self.X_train)):
+            assert train_idx.max() < val_idx.min(), "Temporal order violated in TimeSeriesSplit folds"
             X_fold_train = self.X_train.iloc[train_idx]
             y_fold_train = self.y_train.iloc[train_idx]
             X_fold_val = self.X_train.iloc[val_idx]
