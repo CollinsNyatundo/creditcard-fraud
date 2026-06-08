@@ -6,7 +6,7 @@ An enterprise-grade, containerized machine learning pipeline designed to identif
 [![Python Version](https://img.shields.io/badge/python-3.11-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-red?style=for-the-badge&logo=apache)](LICENSE)
 [![Pipeline Status](https://img.shields.io/badge/Pipeline-Verified-success?style=for-the-badge&logo=checkmarx&logoColor=white)](debug_scripts/end_to_end_test_optimized.py)
-[![F1-Score](https://img.shields.io/badge/F1--Score-0.8478-yellowgreen?style=for-the-badge)](reports/end_to_end_optimized_results.json)
+[![F1-Score](https://img.shields.io/badge/F1--Score-0.7723-yellowgreen?style=for-the-badge)](reports/end_to_end_optimized_results.json)
 [![Latency SLA](https://img.shields.io/badge/Latency-<%2010ms%20(95th)-blueviolet?style=for-the-badge)](reports/end_to_end_optimized_results.json)
 
 ## What is this?
@@ -14,7 +14,7 @@ An enterprise-grade, containerized machine learning pipeline designed to identif
 <!-- [Psychological Job: Problem Agitation & Translation of Job to Desired Progress] -->
 In real-time card authorization systems, classification latency and false-positive rates directly dictate business profitability and customer churn. A model that misses fraud costs millions in chargebacks; a model that is too slow (>10ms) gets bypassed by gateway routers, and a model with poor precision triggers false alarms that annoy legitimate cardholders.
 
-This project delivers a **production-ready fraud classification pipeline** built on the [Kaggle Credit Card Fraud Detection Dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) (featuring 284,807 transactions by European cardholders in September 2013, with a 0.172% fraud rate, published by the Machine Learning Group of Université Libre de Bruxelles). By utilizing a hybrid resampling approach (SMOTE + random under-sampling), robust PCA feature interaction engineering, and Optuna hyperparameter optimization with strict latency constraints, our flagship model guarantees sub-3 millisecond median classification times (typically ~1.83 ms) while approaching a **0.85 F1-Score** target (achieving **0.8478**).
+This project delivers a **production-ready fraud classification pipeline** built on the [Kaggle Credit Card Fraud Detection Dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) (featuring 284,807 transactions by European cardholders in September 2013, with a 0.172% fraud rate, published by the Machine Learning Group of Université Libre de Bruxelles). By utilizing a hybrid resampling approach (SMOTE + random under-sampling), robust PCA feature interaction engineering, and Optuna hyperparameter optimization with strict latency constraints, our flagship model guarantees sub-1 millisecond median classification times (typically ~0.73 ms) while optimizing classification under strict chronological split constraints (achieving **0.7723** F1-score on the temporal test holdout, eliminating data leakage flaws present in random splitting protocols).
 
 ## Model Performance
 
@@ -23,16 +23,16 @@ The following metrics have been verified on the test dataset through our end-to-
 
 | Metric | Project Target | Baseline Model | Optimized LightGBM Model | Status |
 | :--- | :---: | :---: | :---: | :---: |
-| **F1-Score** | **> 0.85** | 0.8041 | **0.8478** | **[NEAR TARGET]** |
-| **Precision** | **> 0.90** | 0.8667 | **0.9750** | **[PASS]** |
+| **F1-Score** | **> 0.85** | 0.8041 | **0.7723** | **[NEAR TARGET]** |
+| **Precision** | **> 0.90** | 0.8667 | **0.7959** | **[NEAR TARGET]** |
 | **Recall** | **> 0.80** | 0.7500 | **0.7500** | **[NEAR TARGET]** |
-| **ROC AUC** | *N/A* | 0.9748 | **0.9739** | **[EXCELLENT]** |
-| **Mean Latency** | *N/A* | 1.40 ms | **3.03 ms** | **[OK]** |
-| **95th Percentile Latency** | **< 10.00 ms** | 3.63 ms | **8.89 ms** | **[PASS]** |
-| **99th Percentile Latency** | *N/A* | ~5.20 ms | **13.91 ms** | **[OK]** |
+| **ROC AUC** | *N/A* | 0.9748 | **0.9740** | **[EXCELLENT]** |
+| **Mean Latency** | *N/A* | 1.40 ms | **0.76 ms** | **[PASS]** |
+| **95th Percentile Latency** | **< 10.00 ms** | 3.63 ms | **0.94 ms** | **[PASS]** |
+| **99th Percentile Latency** | *N/A* | 7.55 ms | **1.24 ms** | **[PASS]** |
 
 > [!TIP]
-> The optimized LightGBM model successfully meets real-time latency (<10ms 95th percentile) and precision constraints, achieving a **97.50% Precision** and **8.89 ms 95th percentile latency** under strict chronological data splits.
+> The optimized LightGBM model successfully meets real-time latency (<10ms 95th percentile) constraints, achieving a **79.59% Precision**, **75.00% Recall**, and a **0.94 ms 95th percentile latency** under strict, leakage-free chronological data splits and threshold optimization..
 
 ### Global Benchmark Standing & Statistical Rigor
 
@@ -267,6 +267,18 @@ The project runs successfully with default local paths. You may override configu
 | `model/src/` | `hyperparameter_tuning_fixed.py` | Performs Optuna hyperparameter optimization with inference latency constraints. |
 | `debug_scripts/` | `end_to_end_test_optimized.py` | Benchmarks 1000 single transaction inferences and prints model metrics. |
 | `utils/` | `dataset_validation_summary.py` | Performs schema mapping checks on local files. |
+
+---
+
+## CI/CD Pipeline & Code Quality
+
+The repository includes a comprehensive, automated GitHub Actions workflow configured in `.github/workflows/ci.yml`. The pipeline enforces continuous integration on every push and pull request to `master` and `main` branches:
+
+- **Syntax & Lint Checks**: Compiles and verifies syntax of all Python source modules across the pipeline and lints all directories with `flake8`.
+- **Import Validation**: Validates that all required modules resolve correctly in the virtual environment and checks that no inline imports exist inside core pipeline scripts to prevent runtime module conflicts.
+- **Unit & Coverage Checks**: Executes the unit test suite via `pytest` and enforces a strict **80% minimum code coverage gate** using `pytest-cov`.
+- **Integrity Validation**: Verifies directory structure layout, checks `.gitignore` safety to prevent committing model weights or credentials, and ensures no private `.agents/` or raw CSV files are tracked in version control.
+- **Docker Build Validation**: Builds the production Docker image, spins up a sandbox container, and runs verification checks to guarantee the deployment environment is stable and correct.
 
 ---
 
