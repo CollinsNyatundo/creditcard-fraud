@@ -9,6 +9,19 @@ import time
 import json
 import warnings
 warnings.filterwarnings('ignore')
+class OptunaPruningCallback:
+    def __init__(self, trial, metric_name):
+        self.trial = trial
+        self.metric_name = metric_name
+
+    def __call__(self, env):
+        for _, eval_name, val, is_higher_better in env.evaluation_result_list:
+            if eval_name == self.metric_name:
+                step = env.iteration
+                self.trial.report(val, step)
+                if self.trial.should_prune():
+                    raise optuna.TrialPruned()
+
 class LatencyConstrainedObjective:
     def __init__(self, X_train, y_train, X_val, y_val, feature_cols, latency_threshold=0.008):
         self.X_train = X_train[feature_cols]
@@ -47,12 +60,13 @@ class LatencyConstrainedObjective:
             # Train model
             train_data = lgb.Dataset(X_fold_train, label=y_fold_train)
             valid_data = lgb.Dataset(X_fold_val, label=y_fold_val, reference=train_data)
+            pruning_callback = OptunaPruningCallback(trial, 'binary_logloss')
             model = lgb.train(
                 params,
                 train_data,
                 valid_sets=[valid_data],
                 num_boost_round=1000,
-                callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False)]
+                callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False), pruning_callback]
             )
             # Predictions
             y_pred_proba = model.predict(X_fold_val, num_iteration=model.best_iteration)
@@ -164,7 +178,7 @@ def main():
     study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(seed=42))
     # Optimize
     print("Starting hyperparameter optimization...")
-    study.optimize(objective, n_trials=5, timeout=1800)  # Limit to 5 trials for demo, 30 min timeout
+    study.optimize(objective, n_trials=50, timeout=1800)
     print(f"Best trial: {study.best_trial.number}")
     print(f"Best F1 score: {study.best_trial.value}")
     print(f"Best parameters: {study.best_trial.params}")
