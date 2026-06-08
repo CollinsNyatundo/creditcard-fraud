@@ -1,4 +1,4 @@
-"""Selective TreeSHAP computation for flagged transactions. Resolution: C-4, D-3."""
+import asyncio
 import numpy as np
 import shap
 import sqlalchemy as sa
@@ -14,8 +14,8 @@ async def compute_and_store_shap(
     """Calculate local SHAP values and write to shap_explanations table.
     Called only for transactions above the shap_trigger_threshold.
     """
-    explainer = shap.TreeExplainer(model)
-    shap_vals = explainer.shap_values(features)
+    explainer = await asyncio.to_thread(shap.TreeExplainer, model)
+    shap_vals = await asyncio.to_thread(explainer.shap_values, features)
 
     # Support shap.Explanation objects (common in modern shap)
     if hasattr(shap_vals, "values"):

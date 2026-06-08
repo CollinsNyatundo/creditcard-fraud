@@ -44,7 +44,7 @@ async def test_webhook_called_when_alert_enabled():
     config_responses = iter(["true", "https://hooks.slack.com/test"])
     mock_get = AsyncMock(side_effect=lambda *a, **kw: next(config_responses))
 
-    with patch("workers.alert_worker.config_service.get", new=mock_get),\
+    with patch("workers.alert_worker.config_service.get", new=mock_get), \
          patch("workers.alert_worker.fire_webhook", new_callable=AsyncMock) as mock_fire:
         await alert_loop(mock_redis)
 

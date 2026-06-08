@@ -24,10 +24,15 @@ settings = get_settings()
 WINDOW_SIZE: int = 10       # hard cap on list length (S-2)
 TTL_SECONDS: int = 86_400   # 24-hour expiry
 
+_redis_client: aioredis.Redis | None = None
+
 
 async def get_redis() -> aioredis.Redis:
-    """Create and return an async Redis client from settings."""
-    return aioredis.from_url(settings.redis_url, decode_responses=True)
+    """Create and return a cached async Redis client from settings."""
+    global _redis_client
+    if _redis_client is None:
+        _redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    return _redis_client
 
 
 async def push_card_amount(

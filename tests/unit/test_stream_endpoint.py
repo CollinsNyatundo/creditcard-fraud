@@ -20,13 +20,13 @@ def mock_redis():
     # Mock token lookup
     mock_redis.get = AsyncMock(return_value="test-api-key-id")
     mock_redis.delete = AsyncMock(return_value=1)
-    
+
     # Mock Pub/Sub listen channel
     mock_pubsub = AsyncMock()
     mock_pubsub.subscribe = AsyncMock()
     mock_pubsub.unsubscribe = AsyncMock()
     mock_pubsub.close = AsyncMock()
-    
+
     async def listen_gen():
         # First message is standard subscription info
         yield {"type": "subscribe", "channel": b"fraud:stream", "data": 1}
@@ -44,7 +44,7 @@ def mock_redis():
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
         }
-    
+
     mock_pubsub.listen = listen_gen
     mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
     return mock_redis
@@ -64,7 +64,7 @@ async def test_generate_stream_token_success():
         mock_session.return_value.__aenter__.return_value.execute = AsyncMock(
             return_value=MagicMock(fetchone=MagicMock(return_value=("api-key-uuid",)))
         )
-        
+
         from app.main import app
         async with LifespanManager(app):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -72,7 +72,7 @@ async def test_generate_stream_token_success():
                     "/auth/stream-token",
                     headers={"X-API-Key": "test-key"},
                 )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert "token" in data
@@ -89,7 +89,7 @@ async def test_generate_stream_token_unauthenticated():
         async with LifespanManager(app):
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 response = await client.post("/auth/stream-token")
-    
+
     assert response.status_code == 401
 
 

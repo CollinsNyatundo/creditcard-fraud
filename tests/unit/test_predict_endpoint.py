@@ -32,7 +32,7 @@ async def test_predict_returns_fraud_flag(mock_model):
     mock_redis.pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
     mock_redis.pipeline.return_value.__aexit__ = AsyncMock(return_value=False)
     mock_redis.lrange = AsyncMock(return_value=[])
-    
+
     with patch("mlflow.lightgbm.load_model", return_value=mock_model), \
          patch("app.main.engine", new=_make_mock_engine()), \
          patch("app.routes.predict.get_redis", return_value=mock_redis), \

@@ -222,7 +222,7 @@ async def predict(
 
     # Offload card amount caching and prediction WAL logging
     background_tasks.add_task(push_card_amount, redis, body.card_id, body.amount, time.time())
-    
+
     # We pass the prediction ID to background tasks. To guarantee uniqueness and compliance,
     # we generate it immediately and return it in the response as well as logging it.
     import uuid

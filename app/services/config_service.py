@@ -9,9 +9,11 @@ class ConfigService:
     def __init__(self, ttl: int = 60) -> None:
         self._cache: dict[str, tuple[object, float]] = {}
         self._ttl = ttl
-        self._lock = asyncio.Lock()
+        self._lock: asyncio.Lock | None = None
 
     async def get(self, key: str, default: object = None) -> object:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
         async with self._lock:
             if key in self._cache:
                 value, expires_at = self._cache[key]

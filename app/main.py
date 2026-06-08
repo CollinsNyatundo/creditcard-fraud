@@ -42,12 +42,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
     app.state.model = mlflow.lightgbm.load_model(settings.model_uri)
     app.state.threshold = settings.shap_trigger_threshold
-    
+
     # Load scaling and feature name artifacts (C-2, C-3)
     app.state.scaler = joblib.load("./models/preprocessor.pkl")
     with open("./models/feature_names.json", "r") as f:
         app.state.feature_names = json.load(f)["feature_names"]
-        
+
     yield
     await engine.dispose()
 

@@ -69,4 +69,3 @@ async def test_drain_pushes_to_dlq_after_max_retries():
             pass
 
     mock_redis.rpush.assert_called_once()
-
