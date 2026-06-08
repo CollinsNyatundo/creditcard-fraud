@@ -23,6 +23,9 @@ desktop.ini
 .agents
 .agents/
 
+# Secrets — NEVER commit real credentials
+.env
+
 # Large Datasets (Ignore raw and processed CSV/ZIP files)
 *.csv
 *.zip
