@@ -1,42 +1,90 @@
-# Git
+# ─── Version Control ─────────────────────────────────────────────────────────
 .git/
 .gitignore
+.gitattributes
 
-# Python virtual environment
+# ─── Python Virtual Environments ─────────────────────────────────────────────
 .venv/
 venv/
 ENV/
 env/
 
-# Python compiled cache
+# ─── Python Compiled / Cache ──────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pdb
 .ipynb_checkpoints/
 
-# IDEs and workspace tools
+# ─── IDE / Editor / AI Tool Workspaces ───────────────────────────────────────
 .vscode/
 .idea/
 .gemini/
 .agents/
+*.swp
+*.swo
 
-# Logs and metrics runs
+# ─── Secrets — never copy into an image ──────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*.crt
+secrets/
+credentials/
+
+# ─── Logs & Runtime Artefacts ────────────────────────────────────────────────
 logs/
 *.log
 
-# Serialized models
-models/
-
-# Datasets (CSV and ZIP files are mounted at runtime via volumes)
+# ─── Datasets (large files — mounted at runtime) ─────────────────────────────
 data/raw/
 data/processed/
 *.csv
 *.zip
 *.rar
 *.gz
+*.tar
+*.tar.gz
 
-# System specific
+# ─── Model Binaries (fetched from MLflow at startup) ─────────────────────────
+models/*.pkl
+models/*.bin
+
+# ─── Test & QA Files (not needed inside the image) ───────────────────────────
+tests/
+pytest.ini
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
+# ─── Documentation (not needed inside the image) ─────────────────────────────
+docs/
+*.md
+!README.md
+
+# ─── Reports & Audit Artefacts ────────────────────────────────────────────────
+reports/
+DEEP_SCAN_FINDINGS.md
+MICRO_AUDIT.md
+end_to_end_test_results.json
+
+# ─── Debug Scripts (development-only utilities) ───────────────────────────────
+debug_scripts/
+
+# ─── Build / Dist Artefacts ──────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+
+# ─── OS-Specific Metadata ─────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db

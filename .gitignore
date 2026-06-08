@@ -1,60 +1,100 @@
-# Python Virtual Environments
+# ─── Python Virtual Environments ───────────────────────────────────────────
 .venv/
 venv/
 ENV/
 env/
 
-# Python compiled files and cache
+# ─── Python Compiled / Cache ────────────────────────────────────────────────
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pdb
 .ipynb_checkpoints/
 
-# OS-specific metadata
+# ─── OS-Specific Metadata ───────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 desktop.ini
+ehthumbs.db
 
-# IDE and tool configurations
+# ─── IDE / Editor Configs ───────────────────────────────────────────────────
 .vscode/
 .idea/
+*.swp
+*.swo
+*.swn
+*~
+
+# ─── Agent / AI Tool Workspaces ─────────────────────────────────────────────
 .gemini/
-.agents
 .agents/
 
-# Secrets — NEVER commit real credentials
+# ─── Secrets — NEVER commit credentials ─────────────────────────────────────
 .env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+*.cert
+*.crt
+secrets/
+credentials/
 
-# Large Datasets (Ignore raw and processed CSV/ZIP files)
+# ─── Large Datasets — Keep folder structure only ─────────────────────────────
 *.csv
 *.zip
 *.rar
 *.gz
 *.tar
+*.tar.gz
 data/raw/creditcard.csv
 data/raw/creditcardfraud.zip
 data/processed/*.csv
 
-# Allow keeping folder structures
+# ─── Preserve empty folder placeholders ─────────────────────────────────────
 !data/
 !data/processed/
 !data/raw/
-!logs/
+
+# ─── Logs ───────────────────────────────────────────────────────────────────
 logs/*
 !logs/.gitkeep
 *.log
 
-# Temporary research and search files
-reports/arxiv_search_*.json
+# ─── Model Binaries (large, tracked via MLflow/DVC instead) ─────────────────
+models/*.pkl
+models/*.bin
+models/*.txt
+models/*.json
+!models/.gitkeep
+
+# ─── Test & Experiment Outputs ───────────────────────────────────────────────
+end_to_end_test_results.json
+reports/end_to_end_*.json
+reports/arxiv_search*.json
 reports/arxiv_search_test.json
 reports/data_leakage_paper.pdf
 reports/paper_text_summary.txt
 reports/audited_paper_references.txt
 reports/new_dataset_inspection_report.json
+reports/final_performance_evaluation.json
 
-# Model binary artifacts (large files, not suitable for git)
-models/*.pkl
-models/*.txt
-models/*.json
-!models/.gitkeep
+# ─── AI-Assisted Audit / Scan Artefacts ─────────────────────────────────────
+DEEP_SCAN_FINDINGS.md
+MICRO_AUDIT.md
+
+# ─── Pytest / Coverage Outputs ───────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# ─── Build / Dist Artefacts ──────────────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
