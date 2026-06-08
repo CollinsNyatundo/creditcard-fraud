@@ -231,6 +231,11 @@ def main():
         json.dump(feature_cols, f)
     # Save optimization results
     optimization_results = {
+        "schema_version": 1,
+        "timestamp": pd.Timestamp.now().isoformat(),
+        "generated_at": pd.Timestamp.now().isoformat(),
+        "source_script": "model/src/hyperparameter_tuning.py",
+        "artifact_of": "creditcard-fraud-pipeline",
         'best_params': study.best_trial.params,
         'best_f1': study.best_trial.value,
         'final_metrics': results

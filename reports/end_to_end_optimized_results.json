@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "timestamp": "2026-06-08T07:26:51.691655",
-  "generated_at": "2026-06-08T07:26:51.693973",
+  "timestamp": "2026-06-08T19:28:30.339868",
+  "generated_at": "2026-06-08T19:28:30.341868",
   "source_script": "debug_scripts/end_to_end_test_optimized.py",
   "artifact_of": "creditcard-fraud-pipeline",
   "metrics": {
-    "f1_score": 0.8478260869565217,
-    "precision": 0.975,
+    "f1_score": 0.7722772277227723,
+    "precision": 0.7959183673469388,
     "recall": 0.75,
-    "roc_auc": 0.9738881577761354
+    "roc_auc": 0.9740125470966811
   },
   "latency": {
-    "mean_ms": 2.2590172995405737,
-    "median_ms": 1.5304000116884708,
-    "p95_ms": 5.367909994674841,
-    "p99_ms": 10.568401012278626,
-    "max_ms": 54.50639998889528
+    "mean_ms": 0.7638048000044364,
+    "median_ms": 0.7265999975061277,
+    "p95_ms": 0.9413100005986053,
+    "p99_ms": 1.2441210004908494,
+    "max_ms": 6.283599999733269
   },
   "requirements": {
     "f1_target_met": false,

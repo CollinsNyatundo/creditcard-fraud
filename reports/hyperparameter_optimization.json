@@ -1,22 +1,27 @@
 {
+  "schema_version": 1,
+  "timestamp": "2026-06-08T19:27:54.000000",
+  "generated_at": "2026-06-08T19:27:54.000000",
+  "source_script": "model/src/hyperparameter_tuning.py",
+  "artifact_of": "creditcard-fraud-pipeline",
   "best_params": {
-    "num_leaves": 50,
-    "max_depth": 10,
-    "learning_rate": 0.07587945476302646,
-    "min_child_samples": 64,
-    "subsample": 0.6624074561769746,
-    "colsample_bytree": 0.662397808134481,
-    "reg_alpha": 0.5808361216819946,
-    "reg_lambda": 8.661761457749352
+    "num_leaves": 38,
+    "max_depth": 8,
+    "learning_rate": 0.019510393695376695,
+    "min_child_samples": 100,
+    "subsample": 0.6183892210238157,
+    "colsample_bytree": 0.9234641363633718,
+    "reg_alpha": 9.187392791434913,
+    "reg_lambda": 2.386317962780205
   },
-  "best_f1": 0.9975370643898804,
+  "best_f1": 0.9430014660025329,
   "final_metrics": {
-    "f1_score": 0.8478260869565217,
-    "precision": 0.975,
+    "f1_score": 0.7722772277227723,
+    "precision": 0.7959183673469388,
     "recall": 0.75,
-    "roc_auc": 0.9738881577761354,
-    "avg_latency": 0.0004897441864013672,
-    "latency_95_percentile": 0.002040255069732666,
-    "optimal_threshold": 0.7599999999999997
+    "roc_auc": 0.9740125470966811,
+    "avg_latency": 0.0003157191276550293,
+    "latency_95_percentile": 0.0005355834960937499,
+    "optimal_threshold": 0.28
   }
 }
