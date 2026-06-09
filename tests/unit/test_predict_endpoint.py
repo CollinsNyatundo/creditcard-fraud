@@ -45,6 +45,8 @@ async def test_predict_returns_fraud_flag(mock_model):
         )
         from app.main import app
         async with LifespanManager(app):
+            app.state.is_focal_loss = False
+            app.state.init_score = 0.0
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
                 response = await client.post(
                     "/predict",
@@ -108,6 +110,8 @@ async def test_predict_with_all_engineered_features(mock_model):
         from app.main import app
 
         async with LifespanManager(app):
+            app.state.is_focal_loss = False
+            app.state.init_score = 0.0
             app.state.scaler = mock_scaler
             app.state.feature_names = expected_features
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
@@ -163,6 +167,8 @@ async def test_predict_fail_open_when_redis_down(mock_model):
         from app.main import app
 
         async with LifespanManager(app):
+            app.state.is_focal_loss = False
+            app.state.init_score = 0.0
             app.state.scaler = mock_scaler
             app.state.feature_names = expected_features
             async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

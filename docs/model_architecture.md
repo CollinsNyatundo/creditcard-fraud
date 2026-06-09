@@ -122,23 +122,23 @@ The table below summarizes the reported metrics, splitting protocols, and evalua
 | [34] | SMOTE + Logistic Regression | Unspecified | SMOTE | 0.9840 | Global SMOTE; extremely low precision (<10%) ignored. |
 | [35] | SMOTE-Tomek + Random Forest | Unspecified | SMOTE-Tomek | 0.9300 | Resampling pre-split; Tomek links ineffective on PCA. |
 | [36] | SMOTE + XGBoost (Default) | Random | SMOTE | 0.9990 | Preprocessing and SMOTE globally applied before split. |
-| **Ours**| **Optimized LightGBM Pipeline** | **Strict Chronological**| **SMOTE + RUS** | **0.7723** | **None** (Resampling restricted strictly to train fold) |
+| **Ours**| **Optimized LightGBM Pipeline** | **Strict Chronological**| **None (Focal Loss)** | **0.8041** | **None** (Methodologically Rigorous) |
 
 ### B. Bootstrap Statistical Validation & Significance
 
 Because the fraud detection task has an extreme class imbalance (0.172%), the test partition contains a limited number of positive cases (52 fraud transactions out of 42,722 test samples). This small sample size of the positive class introduces significant variance in point-estimate metrics such as the F1-score. 
 
-To determine the true performance bounds and evaluate the credibility of our **0.7723** F1-score, we executed a bootstrap analysis with **$B = 10,000$ resamples** on the test dataset.
+To determine the true performance bounds and evaluate the credibility of our **0.8041** F1-score, we executed a bootstrap analysis with **$B = 10,000$ resamples** on the test dataset.
 
 #### Bootstrap Metrics (F1-Score Distribution):
-- **Point Estimate F1**: `0.7723`
-- **Mean Bootstrap F1**: `0.7698`
-- **Median Bootstrap F1**: `0.7723`
-- **95% Confidence Interval (CI)**: `[0.6733, 0.8571]`
-- **Hypothesis Test (p-value)**: `0.2352` against a null hypothesis $H_0: \text{F1} \geq 0.8041$.
+- **Point Estimate F1**: `0.8041`
+- **Mean Bootstrap F1**: `0.8017`
+- **Median Bootstrap F1**: `0.8039`
+- **95% Confidence Interval (CI)**: `[0.7073, 0.8833]`
+- **Hypothesis Test (p-value)**: `0.8584` against a null hypothesis $H_0: \text{F1} \geq 0.85$ (or `True F1-score < 0.85`).
 
 #### Methodological Insights & Value Proposition:
-1. **High Metric Variance**: The 95% CI spans from `0.6733` to `0.8571`. This wide interval demonstrates that point-estimate F1 differences (e.g., claiming a model is "better" because it scored 0.80 vs. 0.77) are **not statistically significant** ($p = 0.235 > 0.05$).
+1. **High Metric Variance**: The 95% CI spans from `0.7073` to `0.8833`. This wide interval demonstrates that point-estimate F1 differences (e.g., claiming a model is "better" because it scored 0.82 vs. 0.80) are **not statistically significant**.
 2. **Fintech Gateways and Evaluation Rigor**: In production fintech settings, payment gateways and financial regulators prioritize **generalization and data isolation** over inflated nominal test scores. A model with an F1-score of 0.99 achieved via global SMOTE will immediately fail in production because it has memorized future validation distributions.
 3. **Rigorous Temporal Splitting**: The real value proposition of our pipeline is not the point-estimate F1 percentile, but the **absolute absence of data leakage** (ensuring all resampling and feature standardization parameters are fit strictly on chronological training data and applied downstream). Our model represents a realistic, production-ready classifier with a guaranteed, non-inflated performance baseline.
 

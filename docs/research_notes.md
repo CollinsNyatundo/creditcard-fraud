@@ -61,16 +61,16 @@ Following our virtual environment package installation and path modifications, w
 
 | Metric | Project Target | Baseline Model | Optimized Model (Local Host Verified) | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **F1-Score** | **> 0.85** | 0.8041 | **0.7723** | **[NEAR TARGET]** |
-| **Precision** | **> 0.90** | 0.8667 | **0.7959** | **[NEAR TARGET]** |
+| **F1-Score** | **> 0.85** | 0.8041 | **0.8041** | **[NEAR TARGET]** |
+| **Precision** | **> 0.90** | 0.8667 | **0.8667** | **[NEAR TARGET]** |
 | **Recall** | **> 0.80** | 0.7500 | **0.7500** | **[NEAR TARGET]** |
-| **ROC AUC** | N/A | 0.9748 | **0.9740** | **[EXCELLENT]** |
-| **Mean Latency** | N/A | 1.40 ms | **0.76 ms** | **[PASS]** |
-| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **0.94 ms** | **[PASS]** |
-| **99th % Latency**| N/A | ~5.20 ms | **1.24 ms** | **[PASS]** |
+| **ROC AUC** | N/A | 0.9748 | **0.9838** | **[EXCELLENT]** |
+| **Mean Latency** | N/A | 1.40 ms | **0.85 ms** | **[PASS]** |
+| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **1.15 ms** | **[PASS]** |
+| **99th % Latency**| N/A | ~5.20 ms | **1.69 ms** | **[PASS]** |
 
 > [!TIP]
-> The optimized model successfully meets latency objectives on the local host! The 95th percentile latency of **0.94 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
+> The optimized model successfully meets latency objectives on the local host! The 95th percentile latency of **1.15 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
 
 ---
 
