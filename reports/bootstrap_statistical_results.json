@@ -1,19 +1,19 @@
 {
-  "original_f1": 0.7722772277227723,
-  "original_precision": 0.7959183673469388,
+  "original_f1": 0.8041237113402062,
+  "original_precision": 0.8666666666666667,
   "original_recall": 0.75,
-  "original_roc_auc": 0.9740125470966811,
+  "original_roc_auc": 0.9838235294117647,
   "bootstrap_f1": {
-    "mean": 0.7698441261227238,
-    "median": 0.7722772277227723,
+    "mean": 0.8017174174341672,
+    "median": 0.803921568627451,
     "ci_95": [
-      0.6732673267326733,
-      0.8571428571428571
+      0.7073170731707317,
+      0.8833333333333333
     ]
   },
   "statistical_test": {
-    "null_hypothesis": "True F1-score >= 0.8041",
-    "p_value": 0.2352,
+    "null_hypothesis": "True F1-score < 0.85",
+    "p_value": 0.8584,
     "is_significant_05": false,
     "is_significant_01": false
   }

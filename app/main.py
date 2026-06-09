@@ -7,6 +7,7 @@ Key design decisions implemented here:
 - C-1: API key middleware is registered on all routes except health/docs.
 """
 import json
+import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
@@ -45,8 +46,37 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Load scaling and feature name artifacts (C-2, C-3)
     app.state.scaler = joblib.load("./models/preprocessor.pkl")
-    with open("./models/feature_names.json", "r") as f:
-        app.state.feature_names = json.load(f)["feature_names"]
+    
+    # Check if we have the optimized feature list
+    feature_list_path = "./models/feature_list.json"
+    if os.path.exists(feature_list_path):
+        with open(feature_list_path, "r") as f:
+            app.state.feature_names = json.load(f)
+    else:
+        with open("./models/feature_names.json", "r") as f:
+            app.state.feature_names = json.load(f)["feature_names"]
+
+    # Load behavior clusterer if present
+    try:
+        app.state.behavior_clusterer = joblib.load("./models/behavior_clusterer.pkl")
+        with open("./models/behavior_clusterer_config.json", "r") as f:
+            app.state.behavior_clusterer_config = json.load(f)
+    except Exception as e:
+        print(f"Warning: behavior clusterer not loaded: {e}")
+        app.state.behavior_clusterer = None
+        app.state.behavior_clusterer_config = None
+
+    # Load optimal threshold and focal loss config if present
+    try:
+        with open("./models/optimal_threshold_v2.json", "r") as f:
+            threshold_config = json.load(f)
+            app.state.init_score = threshold_config.get("init_score", 0.0)
+            app.state.is_focal_loss = threshold_config.get("is_focal_loss", False)
+            app.state.threshold = threshold_config.get("threshold", app.state.threshold)
+    except Exception as e:
+        print(f"Warning: optimal_threshold_v2.json not loaded: {e}")
+        app.state.init_score = 0.0
+        app.state.is_focal_loss = False
 
     yield
     await engine.dispose()

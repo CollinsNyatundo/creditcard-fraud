@@ -77,6 +77,19 @@ def run_optimized_pipeline_test():
         sample_indices = np.random.choice(len(X_test), sample_size, replace=False)
         X_sample = X_test.iloc[sample_indices]
         
+        # Load threshold and focal loss config to determine if we need transformation
+        threshold_path = os.path.join(base_dir, "models", "optimal_threshold_v2.json")
+        init_score = 0.0
+        is_focal_loss = False
+        if os.path.exists(threshold_path):
+            try:
+                with open(threshold_path, 'r') as f:
+                    config_data = json.load(f)
+                    init_score = config_data.get('init_score', 0.0)
+                    is_focal_loss = config_data.get('is_focal_loss', False)
+            except Exception:
+                pass
+
         latencies = []
         # Warm-up run to initialize LightGBM internal structures
         _ = model.predict(X_sample.iloc[0:1])
@@ -84,7 +97,10 @@ def run_optimized_pipeline_test():
         for i in range(len(X_sample)):
             row = X_sample.iloc[i:i+1]
             start_time = time.perf_counter()
-            _ = model.predict(row)
+            pred_raw = model.predict(row)
+            if is_focal_loss:
+                from scipy.special import expit
+                _ = expit(pred_raw + init_score)
             end_time = time.perf_counter()
             latency_ms = (end_time - start_time) * 1000
             latencies.append(latency_ms)
@@ -113,17 +129,26 @@ def run_optimized_pipeline_test():
     # 5. Evaluate overall model performance on full test set
     print("\n5. Running full test set evaluation...")
     try:
-        # Load threshold
+        # Load threshold and focal loss config
         threshold_path = os.path.join(base_dir, "models", "optimal_threshold_v2.json")
         threshold = 0.5  # default
+        init_score = 0.0
+        is_focal_loss = False
         if os.path.exists(threshold_path):
             with open(threshold_path, 'r') as f:
-                threshold = json.load(f).get('threshold', 0.5)
+                config_data = json.load(f)
+                threshold = config_data.get('threshold', 0.5)
+                init_score = config_data.get('init_score', 0.0)
+                is_focal_loss = config_data.get('is_focal_loss', False)
         print(f"   Using decision threshold: {threshold:.4f}")
         
         start_time = time.perf_counter()
-        y_proba = model.predict(X_test)  # Batch predict
-        # LightGBM predict returns probability for binary classification
+        raw_preds = model.predict(X_test)  # Batch predict
+        if is_focal_loss:
+            from scipy.special import expit
+            y_proba = expit(raw_preds + init_score)
+        else:
+            y_proba = raw_preds
         y_pred = (y_proba >= threshold).astype(int)
         batch_time = (time.perf_counter() - start_time) * 1000
         
