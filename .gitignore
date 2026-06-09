@@ -81,6 +81,8 @@ reports/paper_text_summary.txt
 reports/audited_paper_references.txt
 reports/new_dataset_inspection_report.json
 reports/final_performance_evaluation.json
+reports/drift_dashboard.html
+reports/drift_report.json
 
 # ─── AI-Assisted Audit / Scan Artefacts ─────────────────────────────────────
 DEEP_SCAN_FINDINGS.md

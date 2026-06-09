@@ -3,14 +3,20 @@ import json
 import os
 def validate_artifacts():
     """Validate that all required artifacts were created"""
-    print("Validating advanced feature engineering and hyperparameter tuning results...")
+    print("Validating feature engineering and hyperparameter tuning results...")
     print("=" * 60)
     # Check enhanced datasets
     print("1. Checking enhanced datasets:")
     datasets = {
-        "train_enhanced.csv": "./data/processed/train_enhanced.csv",
-        "val_enhanced.csv": "./data/processed/val_enhanced.csv",
-        "test_enhanced.csv": "./data/processed/test_enhanced.csv"
+        "train_enhanced.csv (Advanced)": "./data/processed/train_enhanced.csv",
+        "val_enhanced.csv (Advanced)": "./data/processed/val_enhanced.csv",
+        "test_enhanced.csv (Advanced)": "./data/processed/test_enhanced.csv",
+        "train_enhanced_lite.csv (Lightweight)": "./data/processed/train_enhanced_lite.csv",
+        "val_enhanced_lite.csv (Lightweight)": "./data/processed/val_enhanced_lite.csv",
+        "test_enhanced_lite.csv (Lightweight)": "./data/processed/test_enhanced_lite.csv",
+        "train_enhanced_minimal.csv (Minimal)": "./data/processed/train_enhanced_minimal.csv",
+        "val_enhanced_minimal.csv (Minimal)": "./data/processed/val_enhanced_minimal.csv",
+        "test_enhanced_minimal.csv (Minimal)": "./data/processed/test_enhanced_minimal.csv"
     }
     for name, path in datasets.items():
         if os.path.exists(path):
@@ -34,12 +40,26 @@ def validate_artifacts():
     # Check reports
     print("\n3. Checking reports:")
     reports = {
-        "hyperparameter_optimization.json": "./reports/hyperparameter_optimization.json"
+        "hyperparameter_optimization.json": "./reports/hyperparameter_optimization.json",
+        "end_to_end_optimized_results.json": "./reports/end_to_end_optimized_results.json"
     }
     for name, path in reports.items():
         if os.path.exists(path):
             size = os.path.getsize(path)
             print(f"   [OK] {name}: {size} bytes")
+            # Validate versioning metadata tags
+            try:
+                with open(path, 'r') as f:
+                    data = json.load(f)
+                schema_version = data.get('schema_version')
+                source_script = data.get('source_script')
+                generated_at = data.get('generated_at') or data.get('timestamp')
+                if schema_version and source_script and generated_at:
+                    print(f"        [OK] Metadata tags validated (schema_v={schema_version}, script={source_script}, time={generated_at})")
+                else:
+                    print(f"        [WARNING] Missing metadata tags in {name} (schema_v={schema_version}, script={source_script}, time={generated_at})")
+            except Exception as e:
+                print(f"        [FAIL] Error validating metadata: {e}")
         else:
             print(f"   [FAIL] {name}: NOT FOUND")
     # Load and display feature list

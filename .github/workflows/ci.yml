@@ -53,7 +53,7 @@ jobs:
           echo "=== Checking model/src ==="
           python -m py_compile model/src/train_baseline_model.py
           python -m py_compile model/src/final_model_evaluation.py
-          python -m py_compile model/src/hyperparameter_tuning_fixed.py
+          python -m py_compile model/src/hyperparameter_tuning.py
           echo "=== Checking src ==="
           python -m py_compile src/feature_engineering.py
           echo "=== Checking utils ==="
@@ -95,8 +95,8 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pytest
-        run: pytest
+      - name: Run pytest with coverage
+        run: pytest --cov=app --cov-fail-under=80 --cov-report=term-missing
 
   # ── Pipeline Integration Check ────────────────────────────────────────
   pipeline-check:
@@ -138,7 +138,7 @@ jobs:
               'data/src/feature_engineering.py',
               'data/src/handle_imbalance.py',
               'model/src/train_baseline_model.py',
-              'model/src/hyperparameter_tuning_fixed.py',
+              'model/src/hyperparameter_tuning.py',
               'model/src/final_model_evaluation.py',
           ]
           missing_files = [f for f in required_files if not os.path.isfile(f)]
@@ -157,7 +157,7 @@ jobs:
           files_to_check = [
               'data/src/feature_engineering.py',
               'data/src/handle_imbalance.py',
-              'model/src/hyperparameter_tuning_fixed.py',
+              'model/src/hyperparameter_tuning.py',
               'model/src/final_model_evaluation.py',
           ]
 

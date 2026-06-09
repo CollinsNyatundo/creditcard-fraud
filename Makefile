@@ -29,7 +29,7 @@ run-pipeline:
 	$(PYTHON) data/src/feature_engineering.py
 	$(PYTHON) data/src/handle_imbalance.py
 	$(PYTHON) model/src/train_baseline_model.py
-	$(PYTHON) model/src/hyperparameter_tuning_fixed.py
+	$(PYTHON) model/src/hyperparameter_tuning.py
 	$(PYTHON) model/src/final_model_evaluation.py
 
 test:

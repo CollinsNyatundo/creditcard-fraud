@@ -84,6 +84,10 @@ build/
 dist/
 *.egg-info/
 
+# ─── Frontend & Orchestration ──────────────────────────────────────────────────
+frontend/
+docker-compose*.yml
+
 # ─── OS-Specific Metadata ─────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

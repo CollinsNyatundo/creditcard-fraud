@@ -1,10 +1,13 @@
 """POST /predict — real-time inference route. Resolution: C-1, C-4, S-3."""
 import math
 import time
+import uuid
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Request, BackgroundTasks, HTTPException
 from pydantic import BaseModel, Field
+from scipy import special
+
 from app.services.redis_cache import get_redis, push_card_amount, get_card_history_with_timestamps
 from app.services.prediction_writer import enqueue_prediction_log
 from app.services.config_service import config_service
@@ -32,6 +35,9 @@ def prepare_prediction_features(
     history_items: list[tuple[float, float]],
     scaler: object,
     expected_features: list[str],
+    behavior_clusterer: object = None,
+    behavior_clusterer_config: dict = None,
+    redis_failed: bool = False,
 ) -> pd.DataFrame:
     """Dynamically engineer and scale only the features required by the active model."""
     # 1. Parse card history
@@ -74,21 +80,39 @@ def prepare_prediction_features(
 
     # Pre-calculate time diffs
     time_since_last = 0.0
-    if len(all_timestamps) > 1:
+    if len(all_timestamps) > 1 and not redis_failed:
         time_since_last = all_timestamps[-1] - all_timestamps[-2]
 
     # Pre-calculate rolling velocities
     avg_time_diff = 0.0
-    if len(all_timestamps) > 1:
+    if len(all_timestamps) > 1 and not redis_failed:
         diffs = np.diff(all_timestamps)
         avg_time_diff = float(np.mean(diffs[-10:]))
 
-    tx_count_10 = float(min(len(all_amounts), 10))
+    tx_count_10 = float(min(len(all_amounts), 10)) if not redis_failed else 0.0
 
     # Fill final_row based on expected features
     for col in expected_features:
+        # Check if Redis failed and it is a velocity/rolling feature
+        if redis_failed and (col.startswith("amt_mean_") or col.startswith("amt_min_") or col.startswith("amt_max_")):
+            final_row[col] = 88.34961925093133
+        elif redis_failed and (col.startswith("amt_std_") or col.startswith("amt_deviation_") or col.startswith("amt_zscore_")):
+            final_row[col] = 0.0
+        elif redis_failed and col == "time_since_last":
+            final_row[col] = 0.0
+        elif redis_failed and col == "tx_count_10":
+            final_row[col] = 0.0
+        elif redis_failed and col == "avg_time_diff":
+            final_row[col] = 0.0
+        elif redis_failed and col == "amt_cumsum":
+            final_row[col] = amount
+        elif redis_failed and col == "amt_cumcount":
+            final_row[col] = 1.0
+        elif redis_failed and col == "amt_cummean":
+            final_row[col] = amount
+        
         # Check if it is a scaled PCA or Amount feature
-        if col in scaled_feats:
+        elif col in scaled_feats:
             final_row[col] = scaled_feats[col]
         # Check temporal features
         elif col == "Time":
@@ -171,7 +195,130 @@ def prepare_prediction_features(
         else:
             final_row[col] = 0.0
 
+    # 5. Handle KMeans behavior clustering in real-time if clusterer is loaded
+    cluster_id = 0
+    if behavior_clusterer is not None and behavior_clusterer_config is not None:
+        try:
+            cluster_features = behavior_clusterer_config["feature_names"]
+            cluster_row = {}
+            for col in cluster_features:
+                cluster_row[col] = final_row.get(col, 0.0)
+            
+            cluster_df = pd.DataFrame([cluster_row], columns=cluster_features)
+            cluster_id = int(behavior_clusterer.predict(cluster_df)[0])
+        except Exception as e:
+            import logging
+            logger = logging.getLogger("api.predict")
+            logger.warning(f"Failed to predict behavior cluster in real-time: {e}")
+            cluster_id = 0
+
+    # Add the cluster one-hot features if expected by the model
+    for col in expected_features:
+        if col == "cluster_0":
+            final_row[col] = 1.0 if cluster_id == 0 else 0.0
+        elif col == "cluster_1":
+            final_row[col] = 1.0 if cluster_id == 1 else 0.0
+        elif col == "cluster_2":
+            final_row[col] = 1.0 if cluster_id == 2 else 0.0
+
     return pd.DataFrame([final_row], columns=expected_features)
+
+
+async def safe_push_card_amount(card_id: str, amount: float, timestamp: float) -> None:
+    try:
+        redis = await get_redis()
+        await push_card_amount(redis, card_id, amount, timestamp)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("api.predict")
+        logger.warning(f"Failed to push card amount to Redis: {e}")
+
+
+async def safe_enqueue_prediction_log(
+    card_id: str,
+    amount: float,
+    fraud_probability: float,
+    is_flagged: bool,
+    threshold_used: float,
+    latency_ms: float,
+    prediction_id: str,
+) -> None:
+    try:
+        await enqueue_prediction_log(
+            card_id=card_id,
+            amount=amount,
+            fraud_probability=fraud_probability,
+            is_flagged=is_flagged,
+            threshold_used=threshold_used,
+            latency_ms=latency_ms,
+            prediction_id=prediction_id,
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("api.predict")
+        logger.error(f"Failed to enqueue prediction log to Redis WAL: {e}")
+        # Try direct write fallback to PostgreSQL
+        try:
+            from workers.dlq_worker import write_prediction
+            from datetime import datetime, timezone
+            payload = {
+                "id": prediction_id,
+                "card_id": card_id,
+                "amount": amount,
+                "fraud_probability": fraud_probability,
+                "is_flagged": is_flagged,
+                "threshold_used": threshold_used,
+                "latency_ms": latency_ms,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            }
+            await write_prediction(payload)
+            logger.info("Successfully wrote prediction log directly to PostgreSQL (fallback)")
+        except Exception as pg_err:
+            logger.critical(f"Failed to write prediction log directly to PostgreSQL fallback: {pg_err}")
+
+
+async def safe_publish_transaction(
+    prediction_id: str,
+    card_id: str,
+    amount: float,
+    fraud_probability: float,
+    is_flagged: bool,
+    latency_ms: float,
+) -> None:
+    try:
+        from app.services.stream_publisher import publish_transaction
+        await publish_transaction(
+            prediction_id=prediction_id,
+            card_id=card_id,
+            amount=amount,
+            fraud_probability=fraud_probability,
+            is_flagged=is_flagged,
+            latency_ms=latency_ms,
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("api.predict")
+        logger.warning(f"Failed to publish transaction event: {e}")
+
+
+async def safe_publish_alert(
+    prediction_id: str,
+    card_id: str,
+    amount: float,
+    fraud_probability: float,
+) -> None:
+    try:
+        from app.services.stream_publisher import publish_alert
+        await publish_alert(
+            prediction_id=prediction_id,
+            card_id=card_id,
+            amount=amount,
+            fraud_probability=fraud_probability,
+        )
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("api.predict")
+        logger.warning(f"Failed to publish high-confidence fraud alert: {e}")
 
 
 @router.post("/predict", response_model=PredictResponse)
@@ -184,6 +331,8 @@ async def predict(
     t0 = time.perf_counter()
     model = request.app.state.model
     scaler = request.app.state.scaler
+    behavior_clusterer = getattr(request.app.state, "behavior_clusterer", None)
+    behavior_clusterer_config = getattr(request.app.state, "behavior_clusterer_config", None)
 
     # Determine features expected by model signature
     if hasattr(model, "feature_name_"):
@@ -198,38 +347,56 @@ async def predict(
     else:
         expected_features = getattr(request.app.state, "feature_names", [])
 
-    # Fetch card history from Redis
-    redis = await get_redis()
-    history_items = await get_card_history_with_timestamps(redis, body.card_id)
+    # Fetch card history from Redis with fail-open resiliency
+    redis_failed = False
+    history_items = []
+    try:
+        redis = await get_redis()
+        history_items = await get_card_history_with_timestamps(redis, body.card_id)
+    except Exception as e:
+        import logging
+        logger = logging.getLogger("api.predict")
+        logger.warning(f"Redis lookup failed for card {body.card_id}, falling back to population statistics. Error: {e}")
+        redis_failed = True
 
     # Reconstruct exact features
     features_df = prepare_prediction_features(
-        body.amount, body.hour, history_items, scaler, expected_features
+        body.amount,
+        body.hour,
+        history_items,
+        scaler,
+        expected_features,
+        behavior_clusterer=behavior_clusterer,
+        behavior_clusterer_config=behavior_clusterer_config,
+        redis_failed=redis_failed,
     )
 
-    # Execute LightGBM inference (Booster.predict returns list/array of probabilities)
+    # Execute LightGBM inference (Booster.predict returns list/array of raw margins or probabilities)
     if hasattr(model, "best_iteration"):
-        probs = model.predict(features_df, num_iteration=model.best_iteration)
+        raw_preds = model.predict(features_df, num_iteration=model.best_iteration)
     else:
-        probs = model.predict(features_df)
+        raw_preds = model.predict(features_df)
 
-    prob = float(probs[0])
+    is_focal_loss = getattr(request.app.state, "is_focal_loss", False)
+    init_score_val = getattr(request.app.state, "init_score", 0.0)
+
+    if is_focal_loss:
+        prob = float(special.expit(raw_preds[0] + init_score_val))
+    else:
+        prob = float(raw_preds[0])
 
     # Fetch dynamic decision threshold from DB (C-4)
-    threshold = await config_service.get_float("shap_trigger_threshold", default=0.50)
+    threshold = await config_service.get_float("shap_trigger_threshold", default=getattr(request.app.state, "threshold", 0.50))
     is_flagged = prob >= threshold
     latency_ms = (time.perf_counter() - t0) * 1000
 
-    # Offload card amount caching and prediction WAL logging
-    background_tasks.add_task(push_card_amount, redis, body.card_id, body.amount, time.time())
+    # Offload card amount caching and prediction WAL logging safely
+    background_tasks.add_task(safe_push_card_amount, body.card_id, body.amount, time.time())
 
-    # We pass the prediction ID to background tasks. To guarantee uniqueness and compliance,
-    # we generate it immediately and return it in the response as well as logging it.
-    import uuid
     prediction_id = str(uuid.uuid4())
 
     background_tasks.add_task(
-        enqueue_prediction_log,
+        safe_enqueue_prediction_log,
         card_id=body.card_id,
         amount=body.amount,
         fraud_probability=prob,
@@ -251,9 +418,8 @@ async def predict(
         )
 
     # Publish transaction event to live stream Pub/Sub channel
-    from app.services.stream_publisher import publish_transaction, publish_alert
     background_tasks.add_task(
-        publish_transaction,
+        safe_publish_transaction,
         prediction_id=prediction_id,
         card_id=body.card_id,
         amount=body.amount,
@@ -266,7 +432,7 @@ async def predict(
     alert_threshold = await config_service.get_float("alert_threshold", default=0.90)
     if prob >= alert_threshold:
         background_tasks.add_task(
-            publish_alert,
+            safe_publish_alert,
             prediction_id=prediction_id,
             card_id=body.card_id,
             amount=body.amount,
