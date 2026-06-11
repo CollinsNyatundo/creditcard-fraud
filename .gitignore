@@ -29,6 +29,10 @@ ehthumbs.db
 # ─── Agent / AI Tool Workspaces ─────────────────────────────────────────────
 .gemini/
 .agents/
+.claude/
+.tmp/
+.gitnexus/
+.compound-engineering/
 
 # ─── Secrets — NEVER commit credentials ─────────────────────────────────────
 .env
@@ -70,10 +74,13 @@ models/*.bin
 models/*.txt
 models/*.json
 !models/.gitkeep
+models/model_cache/
 
 # ─── Test & Experiment Outputs ───────────────────────────────────────────────
 end_to_end_test_results.json
 reports/end_to_end_*.json
+reports/*.png
+reports/*.json
 reports/arxiv_search*.json
 reports/arxiv_search_test.json
 reports/data_leakage_paper.pdf
@@ -100,3 +107,4 @@ dist/
 *.egg-info/
 *.egg
 .eggs/
+.compound-engineering/*.local.yaml
