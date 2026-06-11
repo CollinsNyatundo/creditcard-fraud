@@ -38,15 +38,44 @@ def prepare_prediction_features(
     behavior_clusterer: object = None,
     behavior_clusterer_config: dict = None,
     redis_failed: bool = False,
+    features_hash: dict[str, str] | None = None,
 ) -> pd.DataFrame:
     """Dynamically engineer and scale only the features required by the active model."""
     # 1. Parse card history
-    amounts = [item[0] for item in history_items]
-    timestamps = [item[1] for item in history_items]
-
     current_time = time.time()
+    
+    if features_hash:
+        try:
+            raw_amounts = features_hash.get("amounts", "")
+            raw_timestamps = features_hash.get("timestamps", "")
+            amounts = [float(x) for x in raw_amounts.split(",") if x]
+            timestamps = [float(x) for x in raw_timestamps.split(",") if x]
+        except Exception:
+            # Fallback if hash is corrupt
+            amounts = [item[0] for item in history_items]
+            timestamps = [item[1] for item in history_items]
+            features_hash = None
+    else:
+        amounts = [item[0] for item in history_items]
+        timestamps = [item[1] for item in history_items]
+
     all_amounts = amounts + [amount]
     all_timestamps = timestamps + [current_time]
+
+    # Pre-parse aggregates from Hash if available
+    hash_aggregates = {}
+    if features_hash:
+        try:
+            for w in [2, 4, 9]:
+                hash_aggregates[w] = {
+                    "count": int(features_hash.get(f"count_{w}", 0)),
+                    "sum": float(features_hash.get(f"sum_{w}", 0.0)),
+                    "sum_sq": float(features_hash.get(f"sum_sq_{w}", 0.0)),
+                    "min": float(features_hash.get(f"min_{w}", 0.0)),
+                    "max": float(features_hash.get(f"max_{w}", 0.0)),
+                }
+        except Exception:
+            features_hash = None
 
     # 2. Build pre-scaled features dictionary
     # V1-V28 are zero (unobserved in real-time)
@@ -78,18 +107,30 @@ def prepare_prediction_features(
     amount_bin_high = 1.0 if amount > 100 else 0.0
     amount_bin_nan = 1.0 if amount <= 0 else 0.0
 
-    # Pre-calculate time diffs
+    # Pre-calculate time diffs and rolling velocities
     time_since_last = 0.0
-    if len(all_timestamps) > 1 and not redis_failed:
-        time_since_last = all_timestamps[-1] - all_timestamps[-2]
-
-    # Pre-calculate rolling velocities
     avg_time_diff = 0.0
-    if len(all_timestamps) > 1 and not redis_failed:
-        diffs = np.diff(all_timestamps)
-        avg_time_diff = float(np.mean(diffs[-10:]))
-
-    tx_count_10 = float(min(len(all_amounts), 10)) if not redis_failed else 0.0
+    if features_hash:
+        try:
+            if len(all_timestamps) > 1:
+                time_since_last = all_timestamps[-1] - all_timestamps[-2]
+                diffs = np.diff(all_timestamps)
+                avg_time_diff = float(np.mean(diffs[-10:]))
+            count_9 = int(features_hash.get("count_9", 0))
+            tx_count_10 = float(min(count_9 + 1, 10))
+        except Exception:
+            if len(all_timestamps) > 1 and not redis_failed:
+                time_since_last = all_timestamps[-1] - all_timestamps[-2]
+                diffs = np.diff(all_timestamps)
+                avg_time_diff = float(np.mean(diffs[-10:]))
+            tx_count_10 = float(min(len(all_amounts), 10)) if not redis_failed else 0.0
+    else:
+        if len(all_timestamps) > 1 and not redis_failed:
+            time_since_last = all_timestamps[-1] - all_timestamps[-2]
+        if len(all_timestamps) > 1 and not redis_failed:
+            diffs = np.diff(all_timestamps)
+            avg_time_diff = float(np.mean(diffs[-10:]))
+        tx_count_10 = float(min(len(all_amounts), 10)) if not redis_failed else 0.0
 
     # Fill final_row based on expected features
     for col in expected_features:
@@ -139,25 +180,61 @@ def prepare_prediction_features(
         # Check rolling stats (windows 3, 5, 10)
         elif col.startswith("amt_mean_"):
             w = int(col.split("_")[-1])
-            final_row[col] = float(np.mean(all_amounts[-w:]))
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"sum": 0.0, "count": 0})
+                final_row[col] = float((agg["sum"] + amount) / (agg["count"] + 1))
+            else:
+                final_row[col] = float(np.mean(all_amounts[-w:]))
         elif col.startswith("amt_std_"):
             w = int(col.split("_")[-1])
-            final_row[col] = float(np.std(all_amounts[-w:])) if len(all_amounts[-w:]) > 1 else 0.0
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"sum": 0.0, "sum_sq": 0.0, "count": 0})
+                mean_val = (agg["sum"] + amount) / (agg["count"] + 1)
+                variance = ((agg["sum_sq"] + amount**2) / (agg["count"] + 1)) - mean_val**2
+                final_row[col] = float(math.sqrt(max(variance, 0.0))) if (agg["count"] + 1) > 1 else 0.0
+            else:
+                final_row[col] = float(np.std(all_amounts[-w:])) if len(all_amounts[-w:]) > 1 else 0.0
         elif col.startswith("amt_min_"):
             w = int(col.split("_")[-1])
-            final_row[col] = float(np.min(all_amounts[-w:]))
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"min": 0.0, "count": 0})
+                final_row[col] = float(min(agg["min"], amount)) if agg["count"] > 0 else float(amount)
+            else:
+                final_row[col] = float(np.min(all_amounts[-w:]))
         elif col.startswith("amt_max_"):
             w = int(col.split("_")[-1])
-            final_row[col] = float(np.max(all_amounts[-w:]))
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"max": 0.0, "count": 0})
+                final_row[col] = float(max(agg["max"], amount)) if agg["count"] > 0 else float(amount)
+            else:
+                final_row[col] = float(np.max(all_amounts[-w:]))
         elif col.startswith("amt_deviation_"):
             w = int(col.split("_")[-1])
-            mean_val = np.mean(all_amounts[-w:])
-            final_row[col] = amount - mean_val
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"sum": 0.0, "count": 0})
+                mean_val = (agg["sum"] + amount) / (agg["count"] + 1)
+                final_row[col] = amount - mean_val
+            else:
+                mean_val = np.mean(all_amounts[-w:])
+                final_row[col] = amount - mean_val
         elif col.startswith("amt_zscore_"):
             w = int(col.split("_")[-1])
-            mean_val = np.mean(all_amounts[-w:])
-            std_val = np.std(all_amounts[-w:]) if len(all_amounts[-w:]) > 1 else 0.0
-            final_row[col] = (amount - mean_val) / std_val if std_val > 0.0 else 0.0
+            if features_hash:
+                hist_w = w - 1
+                agg = hash_aggregates.get(hist_w, {"sum": 0.0, "sum_sq": 0.0, "count": 0})
+                mean_val = (agg["sum"] + amount) / (agg["count"] + 1)
+                variance = ((agg["sum_sq"] + amount**2) / (agg["count"] + 1)) - mean_val**2
+                std_val = math.sqrt(max(variance, 0.0)) if (agg["count"] + 1) > 1 else 0.0
+                final_row[col] = (amount - mean_val) / std_val if std_val > 0.0 else 0.0
+            else:
+                mean_val = np.mean(all_amounts[-w:])
+                std_val = np.std(all_amounts[-w:]) if len(all_amounts[-w:]) > 1 else 0.0
+                final_row[col] = (amount - mean_val) / std_val if std_val > 0.0 else 0.0
         # Check velocity features
         elif col == "time_since_last":
             final_row[col] = time_since_last
@@ -167,11 +244,23 @@ def prepare_prediction_features(
             final_row[col] = avg_time_diff
         # Check cumulative features
         elif col == "amt_cumsum":
-            final_row[col] = float(np.sum(all_amounts))
+            if features_hash:
+                agg = hash_aggregates.get(9, {"sum": 0.0})
+                final_row[col] = float(agg["sum"] + amount)
+            else:
+                final_row[col] = float(np.sum(all_amounts))
         elif col == "amt_cumcount":
-            final_row[col] = float(len(all_amounts))
+            if features_hash:
+                agg = hash_aggregates.get(9, {"count": 0})
+                final_row[col] = float(agg["count"] + 1)
+            else:
+                final_row[col] = float(len(all_amounts))
         elif col == "amt_cummean":
-            final_row[col] = float(np.mean(all_amounts))
+            if features_hash:
+                agg = hash_aggregates.get(9, {"sum": 0.0, "count": 0})
+                final_row[col] = float((agg["sum"] + amount) / (agg["count"] + 1))
+            else:
+                final_row[col] = float(np.mean(all_amounts))
         # Extreme flags
         elif col == "amt_extremely_high":
             final_row[col] = 1.0 if amount > 1017.97 else 0.0
@@ -190,7 +279,11 @@ def prepare_prediction_features(
             val = scaled_feats.get(base_col, 0.0)
             final_row[col] = scaled_feats.get("Amount", amount) * val
         elif col == "amt_ratio_3":
-            mean_3 = np.mean(all_amounts[-3:])
+            if features_hash:
+                agg = hash_aggregates.get(2, {"sum": 0.0, "count": 0})
+                mean_3 = (agg["sum"] + amount) / (agg["count"] + 1)
+            else:
+                mean_3 = np.mean(all_amounts[-3:])
             final_row[col] = amount / (mean_3 + 1e-8)
         else:
             final_row[col] = 0.0
@@ -350,9 +443,13 @@ async def predict(
     # Fetch card history from Redis with fail-open resiliency
     redis_failed = False
     history_items = []
+    features_hash = None
     try:
         redis = await get_redis()
-        history_items = await get_card_history_with_timestamps(redis, body.card_id)
+        from app.services.redis_cache import get_card_features
+        features_hash = await get_card_features(redis, body.card_id)
+        if not features_hash:
+            history_items = await get_card_history_with_timestamps(redis, body.card_id)
     except Exception as e:
         import logging
         logger = logging.getLogger("api.predict")
@@ -369,21 +466,26 @@ async def predict(
         behavior_clusterer=behavior_clusterer,
         behavior_clusterer_config=behavior_clusterer_config,
         redis_failed=redis_failed,
+        features_hash=features_hash,
     )
 
-    # Execute LightGBM inference (Booster.predict returns list/array of raw margins or probabilities)
-    if hasattr(model, "best_iteration"):
-        raw_preds = model.predict(features_df, num_iteration=model.best_iteration)
+    # Execute inference
+    if hasattr(model, "predict_proba"):
+        probs = model.predict_proba(features_df)
+        prob = float(probs[0, 1])
     else:
-        raw_preds = model.predict(features_df)
+        if hasattr(model, "best_iteration"):
+            raw_preds = model.predict(features_df, num_iteration=model.best_iteration)
+        else:
+            raw_preds = model.predict(features_df)
 
-    is_focal_loss = getattr(request.app.state, "is_focal_loss", False)
-    init_score_val = getattr(request.app.state, "init_score", 0.0)
+        is_focal_loss = getattr(request.app.state, "is_focal_loss", False)
+        init_score_val = getattr(request.app.state, "init_score", 0.0)
 
-    if is_focal_loss:
-        prob = float(special.expit(raw_preds[0] + init_score_val))
-    else:
-        prob = float(raw_preds[0])
+        if is_focal_loss:
+            prob = float(special.expit(raw_preds[0] + init_score_val))
+        else:
+            prob = float(raw_preds[0])
 
     # Fetch dynamic decision threshold from DB (C-4)
     threshold = await config_service.get_float("shap_trigger_threshold", default=getattr(request.app.state, "threshold", 0.50))
