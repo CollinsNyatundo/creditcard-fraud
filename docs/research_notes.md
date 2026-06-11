@@ -49,7 +49,6 @@ The codebase is organized into several key directories:
 *   **[final_model_evaluation.py](model/src/final_model_evaluation.py)**: Performs baseline model and preprocessor validation and benchmarks inference latency.
 
 ### D. Validation, Utility & E2E Testing
-*   **[VALIDATION_SCRIPT.py](debug_scripts/VALIDATION_SCRIPT.py)**: Located in `/debug_scripts/`. Checks for the existence and shape of processed datasets and model artifacts.
 *   **[end_to_end_test_optimized.py](debug_scripts/end_to_end_test_optimized.py)**: Located in `/debug_scripts/`. Loads the optimized model and features list, runs inference on the enhanced test dataset, benchmarks single-transaction latency, and evaluates the F1 score.
 *   **[dataset_validation_summary.py](utils/dataset_validation_summary.py)**: Located in `/utils/`. Prints a human-readable summary of dataset sizes and schemas.
 
@@ -65,12 +64,12 @@ Following our virtual environment package installation and path modifications, w
 | **Precision** | **> 0.90** | 0.8667 | **0.8667** | **[NEAR TARGET]** |
 | **Recall** | **> 0.80** | 0.7500 | **0.7500** | **[NEAR TARGET]** |
 | **ROC AUC** | N/A | 0.9748 | **0.9838** | **[EXCELLENT]** |
-| **Mean Latency** | N/A | 1.40 ms | **0.85 ms** | **[PASS]** |
-| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **1.15 ms** | **[PASS]** |
-| **99th % Latency**| N/A | ~5.20 ms | **1.69 ms** | **[PASS]** |
+| **Mean Latency** | N/A | 1.40 ms | **1.02 ms** | **[PASS]** |
+| **95th % Latency**| **< 10.00 ms** | 3.63 ms | **1.41 ms** | **[PASS]** |
+| **99th % Latency**| N/A | ~5.20 ms | **1.79 ms** | **[PASS]** |
 
 > [!TIP]
-> The optimized model successfully meets latency objectives on the local host! The 95th percentile latency of **1.15 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
+> The optimized model successfully meets latency objectives on the local host! The 95th percentile latency of **1.41 ms** satisfies the <10ms real-time constraint under strict chronological data splits.
 
 ---
 

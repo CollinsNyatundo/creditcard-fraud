@@ -35,4 +35,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 USER appuser
 
 # Default command is to run the validation script
-CMD ["python", "debug_scripts/VALIDATION_SCRIPT.py"]
+CMD ["python", "debug_scripts/end_to_end_test_optimized.py"]

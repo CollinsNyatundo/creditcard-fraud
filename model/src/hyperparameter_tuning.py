@@ -7,6 +7,7 @@ from sklearn.metrics import f1_score, precision_score, recall_score, roc_auc_sco
 from sklearn.model_selection import TimeSeriesSplit
 import time
 import json
+import argparse
 import warnings
 from scipy import optimize, special
 
@@ -191,6 +192,112 @@ class LatencyConstrainedObjective:
             return float('-inf')
         return avg_f1
 
+class F1PrecisionParetoObjective:
+    def __init__(self, X_train, y_train, X_val, y_val, feature_cols, latency_threshold=0.008):
+        self.X_train = X_train[feature_cols]
+        self.y_train = y_train
+        self.X_val = X_val[feature_cols]
+        self.y_val = y_val
+        self.feature_cols = feature_cols
+        self.latency_threshold = latency_threshold  # 8ms in seconds
+
+    def __call__(self, trial):
+        # Define hyperparameter search space (same as focal loss objective)
+        alpha = trial.suggest_float('alpha', 0.1, 0.9)
+        gamma = trial.suggest_float('gamma', 0.5, 5.0)
+
+        focal_loss = FocalLoss(alpha=alpha, gamma=gamma)
+
+        params = {
+            'num_leaves': trial.suggest_int('num_leaves', 20, 100),
+            'max_depth': trial.suggest_int('max_depth', 3, 10),
+            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1),
+            'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
+            'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+            'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+            'reg_alpha': trial.suggest_float('reg_alpha', 0, 10),
+            'reg_lambda': trial.suggest_float('reg_lambda', 0, 10),
+            'objective': focal_loss.lgb_obj,
+            'metric': 'None',
+            'boosting_type': 'gbdt',
+            'verbose': -1,
+            'random_state': 42
+        }
+
+        # Cross-validation with TimeSeriesSplit folds
+        tscv = TimeSeriesSplit(n_splits=3)
+        f1_scores = []
+        precision_scores = []
+        latencies = []
+
+        for fold, (train_idx, val_idx) in enumerate(tscv.split(self.X_train)):
+            assert train_idx.max() < val_idx.min(), "Temporal order violated in TimeSeriesSplit folds"
+            X_fold_train = self.X_train.iloc[train_idx]
+            y_fold_train = self.y_train.iloc[train_idx]
+            X_fold_val = self.X_train.iloc[val_idx]
+            y_fold_val = self.y_train.iloc[val_idx]
+
+            init_score_val = focal_loss.init_score(y_fold_train)
+
+            # Train model
+            train_data = lgb.Dataset(
+                X_fold_train,
+                label=y_fold_train,
+                init_score=np.full_like(y_fold_train, init_score_val, dtype=float)
+            )
+            valid_data = lgb.Dataset(
+                X_fold_val,
+                label=y_fold_val,
+                init_score=np.full_like(y_fold_val, init_score_val, dtype=float),
+                reference=train_data
+            )
+
+            pruning_callback = OptunaPruningCallback(trial, 'focal_loss')
+            model = lgb.train(
+                params,
+                train_data,
+                valid_sets=[valid_data],
+                num_boost_round=1000,
+                feval=focal_loss.lgb_eval,
+                callbacks=[lgb.early_stopping(stopping_rounds=50, verbose=False), pruning_callback]
+            )
+
+            # Predictions
+            raw_preds = model.predict(X_fold_val, num_iteration=model.best_iteration)
+            y_pred_proba = special.expit(raw_preds + init_score_val)
+
+            # Optimize threshold on validation fold
+            optimal_threshold, fold_f1 = optimize_threshold(y_fold_val, y_pred_proba)
+            fold_preds = (y_pred_proba >= optimal_threshold).astype(int)
+            fold_precision = precision_score(y_fold_val, fold_preds)
+            f1_scores.append(fold_f1)
+            precision_scores.append(fold_precision)
+
+            # Measure latency on a sample of predictions
+            sample_indices = np.random.choice(len(X_fold_val), min(100, len(X_fold_val)), replace=False)
+            sample_X = X_fold_val.iloc[sample_indices]
+            start_time = time.time()
+            for _, row in sample_X.iterrows():
+                pred_raw = model.predict([row], num_iteration=model.best_iteration)
+                _ = special.expit(pred_raw + init_score_val)
+            end_time = time.time()
+            avg_latency = (end_time - start_time) / len(sample_X)
+            latencies.append(avg_latency)
+
+        avg_f1 = np.mean(f1_scores)
+        avg_precision = np.mean(precision_scores)
+        avg_latency = np.mean(latencies)
+
+        # Pareto-aware penalty: penalize if precision drops below 0.90
+        precision_penalty = min(1.0, avg_precision / 0.90)
+        pareto_score = avg_f1 * precision_penalty
+
+        if avg_latency > self.latency_threshold:
+            return float('-inf')
+
+        # Return pareto score (Pareto-aware objective)
+        return pareto_score
+
 def load_data():
     """Load enhanced datasets"""
     print("Loading enhanced datasets...")
@@ -285,32 +392,63 @@ def evaluate_model(model, X_val, y_val, X_test, y_test, feature_cols, init_score
 
 def main():
     """Main function to perform hyperparameter tuning"""
+    
+    parser = argparse.ArgumentParser(description='LightGBM hyperparameter tuning for fraud detection')
+    parser.add_argument(
+        '--objective',
+        type=str,
+        choices=['focal', 'f1_precision_pareto'],
+        default='focal',
+        help='Optimization objective: focal (focal loss + F1) or f1_precision_pareto (F1/Precision balance)'
+    )
+    args = parser.parse_args()
+
+    print(f"Using objective mode: {args.objective}")
+
     # Load data
     X_train, y_train, X_val, y_val, X_test, y_test, feature_cols = load_data()
 
-    # Create objective function
-    objective = LatencyConstrainedObjective(X_train, y_train, X_val, y_val, feature_cols)
-
-    # Create study
-    study = optuna.create_study(direction='maximize', sampler=optuna.samplers.TPESampler(seed=42))
+    # Create objective function based on selected mode
+    if args.objective == 'f1_precision_pareto':
+        objective = F1PrecisionParetoObjective(X_train, y_train, X_val, y_val, feature_cols)
+        study = optuna.create_study(
+            direction='maximize',
+            sampler=optuna.samplers.TPESampler(seed=42),
+            study_name='f1_precision_pareto'
+        )
+    else:
+        objective = LatencyConstrainedObjective(X_train, y_train, X_val, y_val, feature_cols)
+        study = optuna.create_study(
+            direction='maximize',
+            sampler=optuna.samplers.TPESampler(seed=42),
+            study_name='focal_loss'
+        )
 
     # Optimize
     print("Starting hyperparameter optimization...")
     study.optimize(objective, n_trials=150, timeout=1800)
     print(f"Best trial: {study.best_trial.number}")
-    print(f"Best F1 score: {study.best_trial.value}")
+    print(f"Best score: {study.best_trial.value:.4f}")
     print(f"Best parameters: {study.best_trial.params}")
 
     # Train final model with best parameters
     print("Training final model with best parameters...")
     best_params = study.best_trial.params.copy()
-    best_alpha = best_params.pop('alpha')
-    best_gamma = best_params.pop('gamma')
+
+    if args.objective == 'f1_precision_pareto':
+        # For pareto mode, alpha/gamma were still tuned during search
+        best_alpha = best_params.pop('alpha')
+        best_gamma = best_params.pop('gamma')
+        is_focal_loss = False
+    else:
+        best_alpha = best_params.pop('alpha')
+        best_gamma = best_params.pop('gamma')
+        is_focal_loss = True
 
     focal_loss_final = FocalLoss(alpha=best_alpha, gamma=best_gamma)
 
     best_params.update({
-        'objective': focal_loss_final.lgb_obj,  # Pass custom objective callable directly here
+        'objective': focal_loss_final.lgb_obj,
         'metric': 'None',
         'boosting_type': 'gbdt',
         'verbose': -1,
@@ -347,6 +485,7 @@ def main():
     # Evaluate model
     results = evaluate_model(final_model, X_val, y_val, X_test, y_test, feature_cols, final_init_score)
     print("\n=== MODEL EVALUATION RESULTS ===")
+    print(f"Objective Type: {args.objective}")
     print(f"F1 Score: {results['f1_score']:.4f}")
     print(f"Precision: {results['precision']:.4f}")
     print(f"Recall: {results['recall']:.4f}")
@@ -373,7 +512,8 @@ def main():
             'init_score': float(final_init_score),
             'alpha': float(best_alpha),
             'gamma': float(best_gamma),
-            'is_focal_loss': True
+            'is_focal_loss': is_focal_loss,
+            'objective_type': args.objective
         }, f)
 
     # Save feature list
@@ -387,8 +527,9 @@ def main():
         "generated_at": pd.Timestamp.now().isoformat(),
         "source_script": "model/src/hyperparameter_tuning.py",
         "artifact_of": "creditcard-fraud-pipeline",
+        "objective_type": args.objective,
         'best_params': study.best_trial.params,
-        'best_f1': study.best_trial.value,
+        'best_score': study.best_trial.value,
         'final_metrics': results
     }
     with open('./reports/hyperparameter_optimization.json', 'w') as f:

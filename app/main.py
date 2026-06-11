@@ -11,6 +11,9 @@ import os
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
+import hashlib
+import os
+import json
 import joblib
 import mlflow.lightgbm
 from fastapi import FastAPI
@@ -26,22 +29,95 @@ from app.routes.stream import router as stream_router
 settings = get_settings()
 
 
+def validate_model_manifest() -> None:
+    """Validate SHA-256 hashes of all files declared in models/model_manifest.json.
+
+    Raises ValueError if a hash mismatch is found, causing startup failure.
+    """
+    manifest_path = "./models/model_manifest.json"
+    if not os.path.exists(manifest_path):
+        print("Warning: model_manifest.json not found. Skipping manifest validation.")
+        return
+
+    with open(manifest_path, "r") as f:
+        try:
+            manifest = json.load(f)
+        except Exception as e:
+            raise ValueError(f"Manifest Error: Failed to parse JSON manifest: {e}")
+
+    artifacts = manifest.get("artifacts", {})
+    for filename, expected_hash in artifacts.items():
+        filepath = os.path.join("./models", filename)
+        if not os.path.exists(filepath):
+            raise ValueError(f"Manifest Error: Referenced file {filepath} not found on disk.")
+
+        sha256 = hashlib.sha256()
+        with open(filepath, "rb") as f:
+            while chunk := f.read(8192):
+                sha256.update(chunk)
+        actual_hash = sha256.hexdigest()
+
+        if actual_hash != expected_hash:
+            raise ValueError(
+                f"Manifest Cryptographic Mismatch: File {filepath} actual hash {actual_hash} "
+                f"does not match expected manifest hash {expected_hash}."
+            )
+    print("Model manifest successfully verified (all SHA-256 hashes match).")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Startup / shutdown lifecycle manager.
 
     Startup:
-        - Set MLflow tracking URI
-        - Load LightGBM model once (resolves S-3: no per-request model fetch)
-        - Set default decision threshold (overridden by DB config in Phase 2)
-        - Load fitted RobustScaler preprocessor (for inference feature scaling)
-        - Load canonical feature names list signature
-
-    Shutdown:
-        - Dispose async DB engine (closes all pool connections cleanly)
+        - Validate model manifest (SHA-256 verification)
+        - Load LightGBM model once (with local cache fallback)
+        - Load fitted RobustScaler preprocessor
+        - Load behavior clusterer & configs
     """
-    mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
-    app.state.model = mlflow.lightgbm.load_model(settings.model_uri)
+    # Ensure IsotonicCalibratedBooster class is resolvable in __main__ namespace for pickle loading
+    import sys
+    try:
+        from model.src.calibrate_probabilities import IsotonicCalibratedBooster
+        import __main__
+        __main__.IsotonicCalibratedBooster = IsotonicCalibratedBooster
+    except ImportError:
+        pass
+
+    # 1. Cryptographic manifest validation
+    try:
+        validate_model_manifest()
+    except Exception as e:
+        print(f"CRITICAL: Model manifest verification failed: {e}")
+        raise
+
+    # 2. Load model with local cache fallback
+    os.makedirs("./models/model_cache", exist_ok=True)
+    fallback_cache_path = "./models/model_cache/calibrated_model_fallback.pkl"
+
+    try:
+        if os.path.exists("./models/calibrated_model.pkl"):
+            app.state.model = joblib.load("./models/calibrated_model.pkl")
+            print("Loaded calibrated model from calibrated_model.pkl")
+            joblib.dump(app.state.model, fallback_cache_path)
+        else:
+            mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
+            app.state.model = mlflow.lightgbm.load_model(settings.model_uri)
+            print("Loaded baseline model from MLflow model URI")
+            joblib.dump(app.state.model, fallback_cache_path)
+    except Exception as e:
+        print(f"Warning: Failed to load model from normal path: {e}. Trying local model cache fallback...")
+        if os.path.exists(fallback_cache_path):
+            try:
+                app.state.model = joblib.load(fallback_cache_path)
+                print(f"Successfully loaded fallback model from local cache: {fallback_cache_path}")
+            except Exception as cache_err:
+                print(f"CRITICAL: Failed to load fallback model from cache: {cache_err}")
+                raise
+        else:
+            print("CRITICAL: MLflow/local model failed and no local fallback cache found.")
+            raise
+
     app.state.threshold = settings.shap_trigger_threshold
 
     # Load scaling and feature name artifacts (C-2, C-3)
@@ -72,7 +148,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             threshold_config = json.load(f)
             app.state.init_score = threshold_config.get("init_score", 0.0)
             app.state.is_focal_loss = threshold_config.get("is_focal_loss", False)
-            app.state.threshold = threshold_config.get("threshold", app.state.threshold)
+            active_key = threshold_config.get("active", "recall_target")
+            if active_key in threshold_config:
+                app.state.threshold = threshold_config[active_key]
+            else:
+                app.state.threshold = threshold_config.get("threshold", app.state.threshold)
+            print(f"Resolved threshold value ({active_key}): {app.state.threshold}")
     except Exception as e:
         print(f"Warning: optimal_threshold_v2.json not loaded: {e}")
         app.state.init_score = 0.0

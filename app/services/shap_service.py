@@ -14,7 +14,8 @@ async def compute_and_store_shap(
     """Calculate local SHAP values and write to shap_explanations table.
     Called only for transactions above the shap_trigger_threshold.
     """
-    explainer = await asyncio.to_thread(shap.TreeExplainer, model)
+    model_for_shap = getattr(model, "booster", model)
+    explainer = await asyncio.to_thread(shap.TreeExplainer, model_for_shap)
     shap_vals = await asyncio.to_thread(explainer.shap_values, features)
 
     # Support shap.Explanation objects (common in modern shap)

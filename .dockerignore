@@ -22,6 +22,10 @@ __pycache__/
 .idea/
 .gemini/
 .agents/
+.claude/
+.tmp/
+.gitnexus/
+.compound-engineering/
 *.swp
 *.swo
 
@@ -56,6 +60,7 @@ data/processed/
 models/*.pkl
 !models/preprocessor.pkl
 models/*.bin
+models/model_cache/
 
 # ─── Test & QA Files (not needed inside the image) ───────────────────────────
 tests/

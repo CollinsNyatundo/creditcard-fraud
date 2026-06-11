@@ -6,6 +6,7 @@ import pandas as pd
 import numpy as np
 from sqlalchemy import text
 from scipy import special
+from scipy.stats import ks_2samp, wasserstein_distance
 
 # Add repository root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -21,9 +22,9 @@ async def fetch_live_data():
         async with AsyncSessionLocal() as session:
             result = await session.execute(
                 text("""
-                    SELECT amount, fraud_probability 
-                    FROM predictions 
-                    ORDER BY created_at DESC 
+                    SELECT amount, fraud_probability
+                    FROM predictions
+                    ORDER BY created_at DESC
                     LIMIT 10000
                 """)
             )
@@ -140,7 +141,57 @@ async def main():
     report_dict["generated_at"] = pd.Timestamp.now().isoformat()
     report_dict["source_script"] = "utils/drift_monitor.py"
     report_dict["artifact_of"] = "creditcard-fraud-pipeline"
-    
+
+    # ── R16: AUPRC trend tracking ──────────────────────────────────────────────
+    # If ground-truth labels are available in the live data, compute AUPRC for
+    # this monitoring window. This allows operators to track AUPRC over time.
+    auprc_window: dict = {"status": "no_labels_available"}
+    if "Class" in live_df.columns and live_df["Class"].sum() > 0:
+        try:
+            from sklearn.metrics import average_precision_score
+            auprc_val = float(average_precision_score(live_df["Class"], live_df["Prediction"]))
+            gate_status = "PASS" if auprc_val > 0.70 else "FAIL — REGRESSION DETECTED"
+            auprc_window = {
+                "status": gate_status,
+                "auprc": auprc_val,
+                "gate": "> 0.70",
+                "window_size": len(live_df),
+            }
+            print(f"[R16] AUPRC this window: {auprc_val:.4f} [{gate_status}]")
+        except Exception as auprc_err:
+            auprc_window = {"status": "error", "error": str(auprc_err)}
+    else:
+        print("[R16] AUPRC trend: no ground-truth labels in live data — skipping AUPRC calculation.")
+
+    report_dict["auprc_window"] = auprc_window
+
+    # ── R17: Amount distribution drift (Wasserstein + KS test) ────────────────
+    # Cost function accuracy depends on stable transaction Amount distributions.
+    # Track drift to detect if cost estimates are becoming unreliable.
+    amount_drift: dict = {"status": "ok"}
+    try:
+        ref_amounts = ref_df["Amount"].dropna().values
+        live_amounts = live_df["Amount"].dropna().values
+        if len(ref_amounts) > 0 and len(live_amounts) > 0:
+            ks_stat, ks_p = ks_2samp(ref_amounts, live_amounts)
+            wass_dist = float(wasserstein_distance(ref_amounts, live_amounts))
+            drift_detected = bool(ks_p < 0.05)
+            amount_drift = {
+                "ks_statistic": float(ks_stat),
+                "ks_p_value": float(ks_p),
+                "wasserstein_distance": wass_dist,
+                "drift_detected": drift_detected,
+                "status": "DRIFT DETECTED — cost estimates may be unreliable" if drift_detected else "stable",
+            }
+            flag = "[WARN]" if drift_detected else "[OK]"
+            print(f"{flag} [R17] Amount distribution: KS={ks_stat:.4f} p={ks_p:.4f} Wasserstein={wass_dist:.2f} | {amount_drift['status']}")
+        else:
+            amount_drift = {"status": "insufficient_data"}
+    except Exception as amt_err:
+        amount_drift = {"status": "error", "error": str(amt_err)}
+
+    report_dict["amount_distribution_drift"] = amount_drift
+
     with open(json_path, "w") as f:
         json.dump(report_dict, f, indent=2)
     print(f"[OK] Saved drift report JSON to {json_path}")

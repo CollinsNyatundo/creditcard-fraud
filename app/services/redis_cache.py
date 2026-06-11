@@ -35,6 +35,74 @@ async def get_redis() -> aioredis.Redis:
     return _redis_client
 
 
+async def get_card_features(
+    redis: aioredis.Redis,
+    card_id: str,
+) -> dict[str, str] | None:
+    """Return the pre-computed features Hash for a card, or None if it doesn't exist."""
+    key = f"card:{card_id}:features"
+    data = await redis.hgetall(key)
+    return data if data else None
+
+
+async def update_card_features(
+    redis: aioredis.Redis,
+    card_id: str,
+    history_items: list[tuple[float, float]],
+) -> None:
+    """Update the card:features Hash in Redis with running aggregates.
+
+    Args:
+        redis: Async Redis client.
+        card_id: Card ID.
+        history_items: The complete history items (including the latest pushed transaction).
+    """
+    key = f"card:{card_id}:features"
+    
+    # We want features for the NEXT prediction, so we slice the history to the last 9 items
+    next_history = history_items[-9:]
+    
+    if not next_history:
+        await redis.delete(key)
+        return
+        
+    amounts = [x[0] for x in next_history]
+    timestamps = [x[1] for x in next_history]
+    
+    features_dict = {
+        "amounts": ",".join(str(x) for x in amounts),
+        "timestamps": ",".join(str(x) for x in timestamps),
+    }
+    
+    # Calculate for each window length: w in [2, 4, 9] (which corresponds to model windows [3, 5, 10] minus 1)
+    for w in [2, 4, 9]:
+        sub_amounts = amounts[-w:]
+        count = len(sub_amounts)
+        
+        if count > 0:
+            sum_val = sum(sub_amounts)
+            sum_sq_val = sum(x**2 for x in sub_amounts)
+            min_val = min(sub_amounts)
+            max_val = max(sub_amounts)
+        else:
+            sum_val = 0.0
+            sum_sq_val = 0.0
+            min_val = 0.0
+            max_val = 0.0
+            
+        features_dict[f"count_{w}"] = str(count)
+        features_dict[f"sum_{w}"] = str(sum_val)
+        features_dict[f"sum_sq_{w}"] = str(sum_sq_val)
+        features_dict[f"min_{w}"] = str(min_val)
+        features_dict[f"max_{w}"] = str(max_val)
+        
+    # Write to Redis Hash and set TTL
+    async with redis.pipeline(transaction=True) as pipe:
+        pipe.hset(key, mapping=features_dict)
+        pipe.expire(key, TTL_SECONDS)
+        await pipe.execute()
+
+
 async def push_card_amount(
     redis: aioredis.Redis,
     card_id: str,
@@ -59,6 +127,10 @@ async def push_card_amount(
         pipe.ltrim(key, -WINDOW_SIZE, -1)
         pipe.expire(key, TTL_SECONDS)
         await pipe.execute()
+        
+    # Retrieve updated history to compute and update features Hash
+    history_items = await get_card_history_with_timestamps(redis, card_id)
+    await update_card_features(redis, card_id, history_items)
 
 
 async def get_card_history(

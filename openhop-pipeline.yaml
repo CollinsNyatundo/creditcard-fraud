@@ -1,0 +1,76 @@
+meta:
+  title: Fraud Detection Pipeline
+  description: Offline training pipeline from raw transactions through model serialization and inference serving.
+  path: creditcard-fraud
+
+flow:
+  nodes:
+    - id: raw-data
+      label: Raw Transactions
+      type: database
+      icon: logos:postgresql
+    - id: data-exploration
+      label: Data Quality
+      type: service
+    - id: preprocessing
+      label: Preprocessing
+      type: service
+    - id: train-val-test-split
+      label: Chronological Split
+      type: service
+    - id: resampling
+      label: SMOTE + Undersampling
+      type: service
+    - id: feature-engineering
+      label: Feature Engineering
+      type: service
+    - id: optuna-tuning
+      label: Optuna Tuning
+      type: service
+    - id: model-serialization
+      label: Model Artifacts
+      type: database
+    - id: e2e-validation
+      label: E2E Validation
+      type: service
+    - id: api
+      label: Inference API
+      type: endpoint
+    - id: frontend
+      label: Frontend
+      type: actor
+
+  steps:
+    - from: raw-data
+      to: data-exploration
+      data: The pipeline reads the raw transaction dataset, including timestamps, amounts, and anonymized PCA features, to assess class balance, missing values, and distribution drift.
+    - from: data-exploration
+      to: preprocessing
+      data: After exploration, the transactions are cleaned and scaled using RobustScaler to reduce the influence of outlier amounts while preserving fraud signal structure.
+    - from: preprocessing
+      to: train-val-test-split
+      data: Preprocessed records are split chronologically into train, validation, and test partitions so that future data is never used to train or tune the model.
+    - from: train-val-test-split
+      to: resampling
+      data: The training partition is rebalanced by oversampling the minority fraud class with SMOTE and undersampling the majority class to achieve a stable 1:5 fraud-to-legitimate ratio.
+    - from: resampling
+      to: feature-engineering
+      data: Balanced training data is expanded into 72 features, including cyclic hour encodings, interaction terms, rolling behavioral windows, and cumulative spending statistics.
+    - from: feature-engineering
+      to: optuna-tuning
+      data: The engineered feature set is fed into Optuna, which searches LightGBM hyperparameters while pruning trials that exceed the strict <8ms average inference latency constraint.
+    - from: optuna-tuning
+      to: model-serialization
+      data: The best-performing, latency-compliant model is serialized into optimized_lightgbm.pkl along with supporting preprocessors and an optimal classification threshold file.
+    - from: model-serialization
+      to: e2e-validation
+      data: The saved artifacts are loaded into an end-to-end benchmark that mimics production inference, measuring prediction accuracy and p95 latency on the holdout test set.
+    - from: model-serialization
+      to: api
+      data: At serving time, the API loads the pretrained model and preprocessors, applies the same feature transformations to incoming transactions, and returns fraud probabilities and class decisions.
+    - from: frontend
+      to: api
+      data: A user submits a new transaction payload through the frontend, which calls the backend API to obtain a real-time fraud prediction and anomaly score.
+    - from: api
+      to: frontend
+      data: The API responds with the model's prediction, confidence, latency metadata, and any triggered downstream actions such as alerts or hold recommendations.

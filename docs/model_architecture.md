@@ -82,9 +82,9 @@ params = {
 
 ## 5. Model Inference Verification
 
-The final serialized model artifact `optimized_lightgbm.pkl` is loaded along with the feature list `feature_list.json`. During inference:
+The final serialized model artifact `optimized_lightgbm.pkl` is loaded along with the feature list `feature_list.json` and the dual-threshold configuration `optimal_threshold_v2.json`. During inference:
 - Raw transaction data is preprocessed to recreate the identical 72 features in the same order.
-- Inference output uses a calibrated decision threshold of **0.2800** (dynamically optimized strictly on validation set predictions to prevent test labels leakage) to maximize F1 classification performance.
+- Inference output uses one of two calibrated decision thresholds: the recall-constrained threshold (**0.0300** to achieve Recall >= 0.85) or the cost-minimizing threshold (**0.0400** to minimize direct business cost). The choice of active threshold is dynamically loaded from the DB/JSON without restarting the service.
 
 ---
 
@@ -182,7 +182,7 @@ Deploying machine learning models for real-time financial decisions carries high
 ### A. False Positive and False Negative Stakes
 - **False Positives (Precision)**: A false positive occurs when a legitimate transaction is classified as fraud. In production, this leads to immediate transactional friction (e.g., declined cards at POS, checkout abandonment). Repeated false positives can cause customer churn, brand damage, and consumer exclusion from essential services.
 - **False Negatives (Recall)**: A false negative occurs when an actual fraud transaction is allowed. This results in direct financial loss (chargebacks) and undermines consumer trust in the payment network.
-- **Calibrated Decision Boundary**: Our decision threshold of **0.2800** was selected to balance precision and recall to optimize both financial protection and customer experience, rather than blindly chasing a single metric.
+- **Calibrated Decision Boundary**: Our decision thresholds (specifically the active recall-constrained threshold of **0.0300**) were selected to optimize financial protection and recall targets, rather than blindly chasing precision.
 
 ### B. Safeguards and Human-in-the-Loop Oversight
 - **No Fully Automated Declines**: The pipeline should not be deployed as an autonomous, un-appealable blocker. Highly suspicious transactions (e.g., probability > 0.85) may be temporarily held, but should trigger quick alerts for user confirmation (SMS/push notification) or secondary human analyst review.
