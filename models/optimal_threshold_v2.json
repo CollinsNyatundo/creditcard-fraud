@@ -1,1 +1,10 @@
-{"threshold": 0.3899999999999999, "init_score": -0.6769536352900276, "alpha": 0.14831110778778947, "gamma": 4.912775955758993, "is_focal_loss": true}
+{
+  "cost_min": 0.04,
+  "recall_target": 0.03,
+  "active": "recall_target",
+  "threshold": 0.03,
+  "init_score": -0.6769536352900276,
+  "is_focal_loss": true,
+  "alpha": 0.14831110778778947,
+  "gamma": 4.912775955758993
+}
