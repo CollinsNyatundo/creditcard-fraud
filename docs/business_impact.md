@@ -18,7 +18,7 @@ Through rigorous hyperparameter tuning and class balancing, our optimized model 
 | **Precision** | False Positives (Friction) | 86.67% | **86.67%** | Maintains a strong precision rate under strict chronological evaluation constraints. |
 | **Recall** | False Negatives (Fraud Caught) | 75.00% | **75.00%** | **Maintains a 75.00% detection rate** under strict chronological splits. |
 | **F1-Score** | Balanced Efficiency | 0.8041 | **0.8041** | Achieves a **leakage-free, realistic operational state** optimized for real-time generalization. |
-| **95th Percentile Latency** | Payment Gateway SLA | 3.63 ms | **1.15 ms** | **Far below the <10.00 ms real-time SLA**, preventing bypass timeouts. |
+| **95th Percentile Latency** | Payment Gateway SLA | 3.63 ms | **1.41 ms** | **Far below the <10.00 ms real-time SLA**, preventing bypass timeouts. |
 
 ---
 
@@ -34,10 +34,10 @@ Our optimized model utilizes LightGBM's highly efficient tree structures. Despit
 
 ```
 Baseline Latency (95th%): [███] 3.63 ms (PASSES SLA - Fast)
-Optimized Latency (95th%): [█] 1.15 ms (PASSES SLA - Ultra-fast, leak-free, 1.15 ms p95)
+Optimized Latency (95th%): [█] 1.41 ms (PASSES SLA - Ultra-fast, leak-free, 1.41 ms p95)
 ```
-- **The Trade-Off**: With hyperparameter tuning, the optimized model's 95th percentile latency drops to **1.15 ms**, staying comfortably below the **10.0 ms** bypass timeout.
-- **The Value of Optimization**: The latency reduction to **1.15 ms** guarantees that the gateway never bypasses the model.
+- **The Trade-Off**: With hyperparameter tuning, the optimized model's 95th percentile latency drops to **1.41 ms**, staying comfortably below the **10.0 ms** bypass timeout.
+- **The Value of Optimization**: The latency reduction to **1.41 ms** guarantees that the gateway never bypasses the model.
 
 ---
 

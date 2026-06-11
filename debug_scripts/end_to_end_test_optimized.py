@@ -15,13 +15,33 @@ def run_optimized_pipeline_test():
     
     # Define paths
     base_dir = "."
-    model_path = os.path.join(base_dir, "models", "optimized_lightgbm.pkl")
     feature_list_path = os.path.join(base_dir, "models", "feature_list.json")
     test_data_path = os.path.join(base_dir, "data", "processed", "test_enhanced.csv")
     output_results_path = os.path.join(base_dir, "reports", "end_to_end_optimized_results.json")
     
     # 1. Load optimized model and feature list
     print("1. Loading model and feature list...")
+    calibrated_path = os.path.join(base_dir, "models", "calibrated_model.pkl")
+    is_calibrated = False
+    
+    # Ensure IsotonicCalibratedBooster class is registered
+    import sys
+    from pathlib import Path
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+    sys.path.insert(0, str(PROJECT_ROOT))
+    try:
+        from model.src.calibrate_probabilities import IsotonicCalibratedBooster
+        import __main__
+        __main__.IsotonicCalibratedBooster = IsotonicCalibratedBooster
+    except ImportError:
+        pass
+
+    if os.path.exists(calibrated_path):
+        model_path = calibrated_path
+        is_calibrated = True
+    else:
+        model_path = os.path.join(base_dir, "models", "optimized_lightgbm.pkl")
+
     if not os.path.exists(model_path):
         print(f"   [FAIL] Model file not found: {model_path}")
         return False
@@ -34,6 +54,8 @@ def run_optimized_pipeline_test():
         with open(feature_list_path, 'r') as f:
             feature_cols = json.load(f)
         print("   [OK] Model and feature list loaded successfully")
+        if is_calibrated:
+            print("   Loaded calibrated model wrapper")
         print(f"   Model expects {len(feature_cols)} features")
     except Exception as e:
         print(f"   [FAIL] Failed to load model/features: {e}")
@@ -92,15 +114,21 @@ def run_optimized_pipeline_test():
 
         latencies = []
         # Warm-up run to initialize LightGBM internal structures
-        _ = model.predict(X_sample.iloc[0:1])
+        if is_calibrated:
+            _ = model.predict_proba(X_sample.iloc[0:1])
+        else:
+            _ = model.predict(X_sample.iloc[0:1])
         
         for i in range(len(X_sample)):
             row = X_sample.iloc[i:i+1]
             start_time = time.perf_counter()
-            pred_raw = model.predict(row)
-            if is_focal_loss:
-                from scipy.special import expit
-                _ = expit(pred_raw + init_score)
+            if is_calibrated:
+                _ = model.predict_proba(row)[0, 1]
+            else:
+                pred_raw = model.predict(row)
+                if is_focal_loss:
+                    from scipy.special import expit
+                    _ = expit(pred_raw + init_score)
             end_time = time.perf_counter()
             latency_ms = (end_time - start_time) * 1000
             latencies.append(latency_ms)
@@ -143,12 +171,15 @@ def run_optimized_pipeline_test():
         print(f"   Using decision threshold: {threshold:.4f}")
         
         start_time = time.perf_counter()
-        raw_preds = model.predict(X_test)  # Batch predict
-        if is_focal_loss:
-            from scipy.special import expit
-            y_proba = expit(raw_preds + init_score)
+        if is_calibrated:
+            y_proba = model.predict_proba(X_test)[:, 1]
         else:
-            y_proba = raw_preds
+            raw_preds = model.predict(X_test)  # Batch predict
+            if is_focal_loss:
+                from scipy.special import expit
+                y_proba = expit(raw_preds + init_score)
+            else:
+                y_proba = raw_preds
         y_pred = (y_proba >= threshold).astype(int)
         batch_time = (time.perf_counter() - start_time) * 1000
         
