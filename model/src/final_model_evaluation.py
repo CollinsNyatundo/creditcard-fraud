@@ -22,6 +22,7 @@ from sklearn.metrics import (
     classification_report,
     confusion_matrix,
     f1_score,
+    precision_recall_curve,
     precision_score,
     recall_score,
     roc_auc_score,
@@ -161,9 +162,8 @@ def _predict_proba(model, X: pd.DataFrame) -> np.ndarray:
 
 def plot_precision_recall_curve(y_true, y_proba, label: str):
     """Plot Precision-Recall curve and save to reports/."""
-    from sklearn.metrics import precision_recall_curve
     precision, recall, _ = precision_recall_curve(y_true, y_proba)
-    
+
     plt.figure(figsize=(8, 6))
     plt.plot(recall.tolist(), precision.tolist(), color='#1f77b4', lw=2.5, label=f'{label} (AUPRC = {average_precision_score(y_true, y_proba):.4f})')
     plt.xlabel('Recall', fontsize=12)
@@ -171,7 +171,7 @@ def plot_precision_recall_curve(y_true, y_proba, label: str):
     plt.title('Precision-Recall Curve', fontsize=14, fontweight='bold')
     plt.grid(True, linestyle=':', alpha=0.6)
     plt.legend(loc='lower left', fontsize=10)
-    
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     plot_path = REPORTS_DIR / "precision_recall_curve.png"
     plt.savefig(plot_path, dpi=300, bbox_inches='tight')
@@ -218,7 +218,7 @@ def compute_metrics(
     logger.info("  F1-Score        : %.4f", f1)
     logger.info("  ROC-AUC         : %.4f", roc)
     logger.info("  Precision       : %.4f", prec)
-    
+
     # Emit explicit PASS/FAIL gate lines
     logger.info("[%s] Recall ≥ 0.85: %.4f", recall_status, rec)
     logger.info("[%s] AUPRC > 0.70: %.4f", pr_auc_status, pr_auc)
@@ -301,13 +301,13 @@ def deployment_readiness(metrics: Dict, latency: Dict) -> Dict:
     recall_ok = metrics["recall"] >= 0.85
     auprc_ok = metrics["pr_auc"] > 0.70
     lat_ok = latency["p95_ms"] < 10.0
-    
+
     logger.info("── Deployment Readiness ─────────────────────────────────")
     logger.info("  Recall >= 0.85 : %s  (%.4f)", "PASS" if recall_ok else "FAIL", metrics["recall"])
     logger.info("  AUPRC  > 0.70  : %s  (%.4f)", "PASS" if auprc_ok else "FAIL", metrics["pr_auc"])
     logger.info("  p95 < 10ms     : %s  (%.4fms)", "PASS" if lat_ok else "FAIL", latency["p95_ms"])
     logger.info("  Overall        : %s", "READY" if (recall_ok and auprc_ok and lat_ok) else "NOT READY")
-    
+
     return {
         "recall_requirement_met": recall_ok,
         "auprc_requirement_met": auprc_ok,
@@ -386,7 +386,7 @@ def main() -> None:
         optimised_metrics = compute_metrics(
             eval_model, X_test_optimised, y_test, eval_threshold, label=optimised_label
         )
-        
+
         # Plot PR Curve for the optimized model configuration
         y_proba_opt = _predict_proba(eval_model, X_test_optimised)
         plot_precision_recall_curve(y_test, y_proba_opt, label=optimised_label)
