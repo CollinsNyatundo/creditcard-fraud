@@ -32,7 +32,7 @@ def _make_mock_redis_with_pipeline() -> tuple[MagicMock, AsyncMock]:
     mock_redis = MagicMock()
     mock_redis.pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
     mock_redis.pipeline.return_value.__aexit__ = AsyncMock(return_value=False)
-    
+
     mock_redis.lrange = AsyncMock(return_value=[])
     mock_redis.delete = AsyncMock()
 

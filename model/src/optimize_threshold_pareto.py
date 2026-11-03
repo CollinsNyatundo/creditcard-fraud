@@ -32,7 +32,6 @@ DATA_PROCESSED_DIR = PROJECT_ROOT / "data" / "processed"
 REPORTS_DIR = PROJECT_ROOT / "reports"
 
 
-
 def load_model_and_data() -> Tuple[Any, pd.DataFrame, np.ndarray]:
     """Load model (calibrated if available, else baseline) and validation dataset."""
     try:
@@ -66,7 +65,7 @@ def load_model_and_data() -> Tuple[Any, pd.DataFrame, np.ndarray]:
 def prepare_features(features: pd.DataFrame) -> pd.DataFrame:
     """Align validation features to model signature."""
     features = features.copy()
-    
+
     feature_list_path = MODELS_DIR / "feature_list.json"
     if feature_list_path.exists():
         with feature_list_path.open("r") as file_handle:
@@ -104,7 +103,7 @@ def calculate_cost(y_true: np.ndarray, y_pred: np.ndarray, amounts: np.ndarray) 
     """
     fn_mask = (y_true == 1) & (y_pred == 0)
     fp_mask = (y_true == 0) & (y_pred == 1)
-    
+
     fn_cost = np.sum(amounts[fn_mask] + 15.0)
     fp_cost = np.sum(fp_mask) * 50.0
     return float(fn_cost + fp_cost)
@@ -133,18 +132,18 @@ def search_dual_thresholds(model, X: pd.DataFrame, y: np.ndarray, amounts: np.nd
     for threshold in thresholds:
         predictions = (probabilities >= threshold).astype(int)
         pred_list = predictions.tolist()
-        
+
         # Calculate metrics
         precision = precision_score(y_list, pred_list, zero_division=0)
         recall = recall_score(y_list, pred_list, zero_division=0)
         f1 = f1_score(y_list, pred_list, zero_division=0)
-        
+
         cm = confusion_matrix(y_list, pred_list)
         tn, fp, fn, tp = cm.ravel()
         sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
         g_mean = np.sqrt(sensitivity * specificity)
-        
+
         cost = calculate_cost(y, predictions, amounts)
 
         precision_values.append(precision)
@@ -154,7 +153,7 @@ def search_dual_thresholds(model, X: pd.DataFrame, y: np.ndarray, amounts: np.nd
         cost_values.append(cost)
 
     cost_values = np.array(cost_values)
-    
+
     # 1. Cost minimizing threshold
     best_cost_index = int(np.argmin(cost_values))
     cost_min = float(thresholds[best_cost_index])
@@ -209,7 +208,7 @@ def plot_cost_curve(thresholds: np.ndarray, cost_values: np.ndarray, cost_min: f
     plt.ylabel("Total Financial Cost ($)", fontsize=12)
     plt.grid(True, linestyle=":", alpha=0.6)
     plt.legend(fontsize=10)
-    
+
     plot_path = REPORTS_DIR / "cost_vs_threshold_curve.png"
     plt.savefig(plot_path, dpi=300, bbox_inches="tight")
     plt.close()
@@ -237,7 +236,7 @@ async def sync_threshold_to_db(threshold_value: float):
 def save_results(cost_min: float, recall_target: float, metrics: Dict[str, Any]):
     """Save threshold configs to optimal_threshold_v2.json, preserving focal loss details."""
     config_v2_path = MODELS_DIR / "optimal_threshold_v2.json"
-    
+
     # Defaults / existing config load
     init_score = 0.0
     is_focal_loss = False
@@ -273,7 +272,7 @@ def save_results(cost_min: float, recall_target: float, metrics: Dict[str, Any])
     with config_v2_path.open("w") as f:
         json.dump(payload, f, indent=2)
     logger.info("Saved optimal threshold configs to %s", config_v2_path)
-    
+
     # Save detailed metrics to reports
     reports_path = REPORTS_DIR / "threshold_pareto_results.json"
     with reports_path.open("w") as f:
@@ -288,18 +287,18 @@ def main():
     """Main execution entrypoint."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger.info("Starting dual threshold optimization...")
-    
+
     model, X_val, y_val = load_model_and_data()
     amounts = cast(np.ndarray, X_val["Amount"].values)
-    
+
     prepared = prepare_features(X_val)
     cost_min, recall_target, results, thresholds, cost_values = search_dual_thresholds(
         model, prepared, y_val, amounts
     )
-    
+
     logger.info("Optimized Cost-Min Threshold: %.4f (Cost: $%.2f)", cost_min, results["metrics_cost_min"]["cost"])
     logger.info("Recall-Constrained Threshold (>=0.85): %.4f (Recall: %.4f)", recall_target, results["metrics_recall_target"]["recall"])
-    
+
     plot_cost_curve(thresholds, cost_values, cost_min, recall_target)
     save_results(cost_min, recall_target, results)
 

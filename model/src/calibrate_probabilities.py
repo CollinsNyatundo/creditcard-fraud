@@ -77,7 +77,7 @@ class IsotonicCalibratedBooster:
 def load_baseline_model(model_dir: Path = MODELS_DIR) -> Tuple[lgb.Booster, float, bool, float]:
     """Load the best available model and optimal threshold configs."""
     logger.info("Loading model and configs...")
-    
+
     if (model_dir / "optimized_lightgbm.pkl").exists():
         model = joblib.load(model_dir / "optimized_lightgbm.pkl")
         logger.info("Loaded optimized flagship model from optimized_lightgbm.pkl")
@@ -97,7 +97,7 @@ def load_baseline_model(model_dir: Path = MODELS_DIR) -> Tuple[lgb.Booster, floa
         config_data = json.load(file_handler)
         is_focal_loss = config_data.get("is_focal_loss", False)
         init_score = config_data.get("init_score", 0.0)
-        
+
         # Check active threshold key if present
         active_key = config_data.get("active", "recall_target")
         if active_key in config_data:
@@ -148,7 +148,7 @@ def prepare_features(
 ) -> pd.DataFrame:
     """Align feature set with the model's expected signature."""
     aligned_features = features.copy()
-    
+
     # Load expected features
     feature_list_path = models_dir / "feature_list.json"
     if feature_list_path.exists():
@@ -190,19 +190,19 @@ def compute_metrics(
 ) -> dict:
     """Compute classification and ranking metrics."""
     predicted_classes = (predicted_labels >= threshold).astype(int)
-    
+
     # Convert numpy arrays to standard Python lists to avoid type stub conflicts
     y_true_list = ground_truth.tolist()
     y_pred_list = predicted_classes.tolist()
     y_prob_list = predicted_probabilities.tolist()
-    
+
     cm = confusion_matrix(y_true_list, y_pred_list)
     tn, fp, fn, tp = cm.ravel()
-    
+
     sensitivity = tp / (tp + fn) if (tp + fn) > 0 else 0.0
     specificity = tn / (tn + fp) if (tn + fp) > 0 else 0.0
     g_mean = float(np.sqrt(sensitivity * specificity))
-    
+
     return {
         "precision": float(precision_score(y_true_list, y_pred_list, zero_division=0)),
         "recall": float(recall_score(y_true_list, y_pred_list, zero_division=0)),
@@ -255,7 +255,7 @@ def main() -> None:
         raw_proba_test = np.asarray(
             model.predict(test_prepared, num_iteration=model.best_iteration)
         ).reshape(-1)
-        
+
     before_metrics = compute_metrics(
         test_target, raw_proba_test, raw_proba_test, threshold
     )
@@ -280,7 +280,7 @@ def main() -> None:
         "threshold": threshold,
         "calibration_method": "isotonic",
     }
-    
+
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     logger.info("Saving metrics comparison to %s", REPORTS_DIR / "calibration_results.json")
     with (REPORTS_DIR / "calibration_results.json").open("w") as file_handler:

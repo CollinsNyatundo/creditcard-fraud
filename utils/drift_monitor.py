@@ -42,27 +42,27 @@ def load_reference_data():
     train_path = "./data/processed/train_enhanced.csv"
     if not os.path.exists(train_path):
         raise FileNotFoundError(f"Training reference data not found at {train_path}")
-    
+
     train_df = pd.read_csv(train_path)
     # Sample reference data for stability and speed
     sample_df = train_df.sample(n=min(10000, len(train_df)), random_state=42)
-    
+
     # Load model to get baseline predictions
     model_path = "./models/optimized_lightgbm.pkl"
     feature_list_path = "./models/feature_list.json"
     if not os.path.exists(model_path) or not os.path.exists(feature_list_path):
         raise FileNotFoundError("Model or feature list not found in ./models. Run training first.")
-        
+
     import joblib
     model = joblib.load(model_path)
     with open(feature_list_path, "r") as f:
         feature_cols = json.load(f)
-        
+
     X_ref = sample_df[feature_cols]
-    
+
     # Predict raw scores
     raw_preds = model.predict(X_ref)
-    
+
     # Check for Focal Loss config
     init_score = 0.0
     is_focal_loss = False
@@ -75,13 +75,13 @@ def load_reference_data():
                 is_focal_loss = config_data.get("is_focal_loss", False)
         except Exception:
             pass
-            
+
     # Apply transformation
     if is_focal_loss:
         ref_probs = special.expit(raw_preds + init_score)
     else:
         ref_probs = raw_preds
-        
+
     ref_df = pd.DataFrame({
         "Amount": sample_df["Amount"].values,
         "Prediction": ref_probs
@@ -92,15 +92,15 @@ async def main():
     print("=" * 60)
     print("PRODUCTION DATA DRIFT MONITORING WORKER")
     print("=" * 60)
-    
+
     try:
         ref_df = load_reference_data()
     except Exception as e:
         print(f"[FAIL] Error loading reference data: {e}")
         return
-        
+
     live_df = await fetch_live_data()
-    
+
     # If the database is empty or has too few entries, simulate mock live data for validation
     if len(live_df) < 10:
         print("Database predictions ledger is empty or has too few entries (<10).")
@@ -114,27 +114,27 @@ async def main():
             live_df["Prediction"] + np.random.normal(0, 0.03, size=len(live_df)),
             0.0, 1.0
         )
-        
+
     print("Running Evidently Data Drift analysis...")
     # Setup evidently report
     report = Report(metrics=[
         DataDriftPreset(columns=["Amount", "Prediction"])
     ])
-    
+
     report.run(reference_data=ref_df, current_data=live_df)
-    
+
     # Ensure directories exist
     os.makedirs("./reports", exist_ok=True)
-    
+
     # Save dashboard HTML
     html_path = "./reports/drift_dashboard.html"
     report.save_html(html_path)
     print(f"[OK] Saved interactive drift dashboard to {html_path}")
-    
+
     # Save report JSON
     json_path = "./reports/drift_report.json"
     report_dict = report.as_dict()
-    
+
     # Add custom metadata versioning tags required for reports
     report_dict["schema_version"] = 1
     report_dict["timestamp"] = pd.Timestamp.now().isoformat()

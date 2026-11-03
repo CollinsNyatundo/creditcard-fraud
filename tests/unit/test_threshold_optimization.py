@@ -76,8 +76,8 @@ class TestCalculateCost:
 
     def test_mixed_fn_and_fp(self):
         """Combined FN + FP cost formula is correct."""
-        y_true   = np.array([1,  0,  1,  0])
-        y_pred   = np.array([0,  1,  1,  0])
+        y_true   = np.array([1, 0, 1, 0])
+        y_pred   = np.array([0, 1, 1, 0])
         amounts  = np.array([80.0, 0.0, 200.0, 0.0])
 
         # FN: index 0 → 80 + 15 = 95
@@ -178,7 +178,6 @@ class TestSearchDualThresholds:
         # Function must still return valid floats without raising
         assert isinstance(cost_min, float)
         assert isinstance(recall_target, float)
-
 
     def test_json_output_schema(self):
         """save_results must write JSON with cost_min, recall_target, active,

@@ -9,14 +9,14 @@ from app.main import validate_model_manifest
 def temp_manifest_setup():
     manifest_path = "./models/model_manifest.json"
     backup_path = "./models/model_manifest.json.bak"
-    
+
     has_backup = False
     if os.path.exists(manifest_path):
         os.rename(manifest_path, backup_path)
         has_backup = True
-        
+
     yield
-    
+
     if os.path.exists(manifest_path):
         os.remove(manifest_path)
     if has_backup:
@@ -30,13 +30,13 @@ def test_validate_model_manifest_success(temp_manifest_setup) -> None:
     # Create a temporary model asset
     asset_filename = "dummy_test_asset.pkl"
     asset_path = os.path.join("./models", asset_filename)
-    
+
     content = b"fake model content for hashing"
     with open(asset_path, "wb") as f:
         f.write(content)
-        
+
     expected_hash = hashlib.sha256(content).hexdigest()
-    
+
     # Write temporary manifest
     manifest_data = {
         "artifacts": {
@@ -45,7 +45,7 @@ def test_validate_model_manifest_success(temp_manifest_setup) -> None:
     }
     with open("./models/model_manifest.json", "w") as f:
         json.dump(manifest_data, f)
-        
+
     try:
         # Should execute successfully
         validate_model_manifest()
@@ -56,11 +56,11 @@ def test_validate_model_manifest_success(temp_manifest_setup) -> None:
 def test_validate_model_manifest_hash_mismatch(temp_manifest_setup) -> None:
     asset_filename = "dummy_test_asset.pkl"
     asset_path = os.path.join("./models", asset_filename)
-    
+
     content = b"fake model content for hashing"
     with open(asset_path, "wb") as f:
         f.write(content)
-        
+
     # Write incorrect hash
     manifest_data = {
         "artifacts": {
@@ -69,7 +69,7 @@ def test_validate_model_manifest_hash_mismatch(temp_manifest_setup) -> None:
     }
     with open("./models/model_manifest.json", "w") as f:
         json.dump(manifest_data, f)
-        
+
     try:
         # Should raise ValueError
         with pytest.raises(ValueError) as excinfo:
@@ -88,7 +88,7 @@ def test_validate_model_manifest_file_not_found(temp_manifest_setup) -> None:
     }
     with open("./models/model_manifest.json", "w") as f:
         json.dump(manifest_data, f)
-        
+
     with pytest.raises(ValueError) as excinfo:
         validate_model_manifest()
     assert "not found on disk" in str(excinfo.value)

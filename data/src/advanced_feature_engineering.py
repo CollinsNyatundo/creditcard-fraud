@@ -18,11 +18,11 @@ def load_and_analyze_data():
     train_df = pd.read_csv('./data/processed/train_balanced.csv')
     val_df = pd.read_csv('./data/processed/val.csv')
     test_df = pd.read_csv('./data/processed/test.csv')
-    
+
     # One-hot encode Amount_Bin for validation and test splits
     val_df = encode_amount_bin(val_df)
     test_df = encode_amount_bin(test_df)
-    
+
     print(f"Train shape: {train_df.shape}")
     print(f"Validation shape: {val_df.shape}")
     print(f"Test shape: {test_df.shape}")
@@ -112,21 +112,21 @@ def add_clustering_features(train_df, val_df, test_df, base_features):
     import os
     from sklearn.cluster import KMeans
     from sklearn.metrics import silhouette_score
-    
+
     # 1. Select numeric features
     train_numeric = train_df[base_features].select_dtypes(include=[np.number])
     val_numeric = val_df[base_features].select_dtypes(include=[np.number])
     test_numeric = test_df[base_features].select_dtypes(include=[np.number])
-    
+
     # 2. Find optimal K via silhouette analysis
     sample_size = min(10000, len(train_numeric))
     np.random.seed(42)
     sample_indices = np.random.choice(len(train_numeric), sample_size, replace=False)
     X_sample = train_numeric.iloc[sample_indices]
-    
+
     best_k = 3
     best_score = -1.0
-    for k in range(3, 7): # range 3 to 6 is sufficient and fast
+    for k in range(3, 7):  # range 3 to 6 is sufficient and fast
         kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
         labels = kmeans.fit_predict(X_sample)
         score = silhouette_score(X_sample, labels)
@@ -134,18 +134,18 @@ def add_clustering_features(train_df, val_df, test_df, base_features):
         if score > best_score:
             best_score = score
             best_k = k
-            
+
     print(f"Optimal cluster size: K={best_k}")
-    
+
     # 3. Fit final KMeans strictly on training set
     kmeans_final = KMeans(n_clusters=best_k, random_state=42, n_init=10)
     kmeans_final.fit(train_numeric)
-    
+
     # Save the fitted clusterer
     os.makedirs("./models", exist_ok=True)
     joblib.dump(kmeans_final, "./models/behavior_clusterer.pkl")
     print("Serialized KMeans behavior clusterer to ./models/behavior_clusterer.pkl")
-    
+
     # Save config
     with open("./models/behavior_clusterer_config.json", "w") as f:
         import json
@@ -153,23 +153,23 @@ def add_clustering_features(train_df, val_df, test_df, base_features):
             "optimal_k": best_k,
             "feature_names": list(train_numeric.columns)
         }, f, indent=2)
-        
+
     # 4. Predict clusters
     train_clusters = kmeans_final.predict(train_numeric)
     val_clusters = kmeans_final.predict(val_numeric)
     test_clusters = kmeans_final.predict(test_numeric)
-    
+
     # 5. Append one-hot encoded columns
     train_df = train_df.copy()
     val_df = val_df.copy()
     test_df = test_df.copy()
-    
+
     for i in range(best_k):
         col_name = f"cluster_{i}"
         train_df[col_name] = (train_clusters == i).astype(float)
         val_df[col_name] = (val_clusters == i).astype(float)
         test_df[col_name] = (test_clusters == i).astype(float)
-        
+
     print(f"Appended one-hot cluster features cluster_0 to cluster_{best_k-1}")
     return train_df, val_df, test_df
 
@@ -178,10 +178,10 @@ def apply_feature_selection(train_df, val_df, test_df):
     print("Applying feature selection...")
     # Get all feature columns except Class and Time
     feature_cols = [col for col in train_df.columns if col not in ['Class', 'Time']]
-    
+
     # Apply dynamic KMeans clustering features to avoid lookahead leakage
     train_df, val_df, test_df = add_clustering_features(train_df, val_df, test_df, feature_cols)
-    
+
     # Re-calculate feature list including the new cluster columns
     feature_cols = [col for col in train_df.columns if col not in ['Class', 'Time']]
     print(f"Selected {len(feature_cols)} features (including clustering encodings)")
