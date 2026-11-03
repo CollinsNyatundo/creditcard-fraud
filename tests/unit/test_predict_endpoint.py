@@ -81,10 +81,10 @@ async def test_predict_with_all_engineered_features(mock_model):
     mock_redis = MagicMock()
     mock_redis.pipeline.return_value.__aenter__ = AsyncMock(return_value=mock_pipe)
     mock_redis.pipeline.return_value.__aexit__ = AsyncMock(return_value=False)
-    
+
     # History with 2 items to trigger time differences and rolling calculations
     mock_history = [(50.0, time.time() - 100), (30.0, time.time() - 50)]
-    
+
     expected_features = [
         "V1", "Amount", "Time", "Time_Hours", "Time_Normalized", "Time_Hour",
         "Time_Hour_Sin", "Time_Hour_Cos", "Amount_Bin_Low", "Amount_Bin_Medium",
@@ -105,11 +105,11 @@ async def test_predict_with_all_engineered_features(mock_model):
          patch("app.services.config_service.config_service.get_float",
                new_callable=AsyncMock, side_effect=lambda key, default=0.5: 0.5 if key == "shap_trigger_threshold" else 0.9), \
          patch("app.middleware.auth.AsyncSessionLocal") as mock_session:
-         
+
         mock_session.return_value.__aenter__.return_value.execute = AsyncMock(
             return_value=MagicMock(fetchone=MagicMock(return_value=("some-id",)))
         )
-        
+
         from app.main import app
 
         async with LifespanManager(app):
@@ -124,7 +124,7 @@ async def test_predict_with_all_engineered_features(mock_model):
                     json={"card_id": "card_002", "amount": 105.0, "hour": 14},
                     headers={"X-API-Key": "test-key"},
                 )
-                
+
     assert response.status_code == 200
     data = response.json()
     assert data["is_fraud"] is True
@@ -142,7 +142,7 @@ async def test_predict_fail_open_when_redis_down(mock_model):
     mock_scaler = MagicMock()
     mock_scaler.feature_names_in_ = ["V1", "Amount"]
     mock_scaler.transform.return_value = np.array([[0.5, 100.0]])
-    
+
     expected_features = [
         "V1", "Amount", "Time", "Time_Hours", "Time_Normalized", "Time_Hour",
         "Time_Hour_Sin", "Time_Hour_Cos", "Amount_Bin_Low", "Amount_Bin_Medium",
@@ -163,11 +163,11 @@ async def test_predict_fail_open_when_redis_down(mock_model):
          patch("app.services.config_service.config_service.get_float",
                new_callable=AsyncMock, side_effect=lambda key, default=0.5: 0.5 if key == "shap_trigger_threshold" else 0.9), \
          patch("app.middleware.auth.AsyncSessionLocal") as mock_session:
-         
+
         mock_session.return_value.__aenter__.return_value.execute = AsyncMock(
             return_value=MagicMock(fetchone=MagicMock(return_value=("some-id",)))
         )
-        
+
         from app.main import app
 
         async with LifespanManager(app):
@@ -182,13 +182,11 @@ async def test_predict_fail_open_when_redis_down(mock_model):
                     json={"card_id": "card_003", "amount": 105.0, "hour": 14},
                     headers={"X-API-Key": "test-key"},
                 )
-                
+
     assert response.status_code == 200
     data = response.json()
     assert data["is_fraud"] is True
     assert data["fraud_probability"] == pytest.approx(0.95, abs=0.01)
-
-
 
 
 # ---------------------------------------------------------------------------

@@ -93,7 +93,7 @@ class OptunaPruningCallback:
                     report_val = -val
                 else:
                     report_val = val
-                
+
                 self.trial.report(report_val, step)
                 if self.trial.should_prune():
                     raise optuna.TrialPruned()
@@ -392,7 +392,7 @@ def evaluate_model(model, X_val, y_val, X_test, y_test, feature_cols, init_score
 
 def main():
     """Main function to perform hyperparameter tuning"""
-    
+
     parser = argparse.ArgumentParser(description='LightGBM hyperparameter tuning for fraud detection')
     parser.add_argument(
         '--objective',

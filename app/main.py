@@ -29,6 +29,22 @@ from app.routes.stream import router as stream_router
 settings = get_settings()
 
 
+def _write_fallback_cache(model: object, cache_path: str) -> None:
+    """Best-effort, atomic write of the loaded model to the local fallback cache.
+
+    A failed cache write must never discard a model that already loaded, and
+    must never leave a truncated file behind for the fallback path to trip on.
+    """
+    tmp_path = f"{cache_path}.tmp"
+    try:
+        joblib.dump(model, tmp_path)
+        os.replace(tmp_path, cache_path)
+    except Exception as e:
+        print(f"Warning: could not refresh model fallback cache at {cache_path}: {e}")
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
+
+
 def validate_model_manifest() -> None:
     """Validate SHA-256 hashes of all files declared in models/model_manifest.json.
 
@@ -99,12 +115,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         if os.path.exists("./models/calibrated_model.pkl"):
             app.state.model = joblib.load("./models/calibrated_model.pkl")
             print("Loaded calibrated model from calibrated_model.pkl")
-            joblib.dump(app.state.model, fallback_cache_path)
+            _write_fallback_cache(app.state.model, fallback_cache_path)
         else:
             mlflow.set_tracking_uri(settings.mlflow_tracking_uri)
             app.state.model = mlflow.lightgbm.load_model(settings.model_uri)
             print("Loaded baseline model from MLflow model URI")
-            joblib.dump(app.state.model, fallback_cache_path)
+            _write_fallback_cache(app.state.model, fallback_cache_path)
     except Exception as e:
         print(f"Warning: Failed to load model from normal path: {e}. Trying local model cache fallback...")
         if os.path.exists(fallback_cache_path):

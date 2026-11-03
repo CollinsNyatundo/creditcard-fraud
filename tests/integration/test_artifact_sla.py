@@ -10,6 +10,12 @@ import pytest
 # Add repository root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
+TEST_DATA_PATH = './data/processed/test_enhanced.csv'
+requires_test_data = pytest.mark.skipif(
+    not os.path.exists(TEST_DATA_PATH),
+    reason=f"{TEST_DATA_PATH} not present (generated locally from the Kaggle dataset)",
+)
+
 def test_model_artifact_files_exist():
     """Verify that all optimized model artifacts exist and are non-empty."""
     required_files = [
@@ -21,12 +27,13 @@ def test_model_artifact_files_exist():
         assert os.path.exists(file_path), f"Artifact file {file_path} does not exist."
         assert os.path.getsize(file_path) > 0, f"Artifact file {file_path} is empty."
 
+@requires_test_data
 def test_feature_column_alignment_and_types():
     """Verify feature list aligns with test dataset and has correct types."""
     # Load feature list
     with open('./models/feature_list.json', 'r') as f:
         feature_list = json.load(f)
-    
+
     assert isinstance(feature_list, list), "feature_list.json should contain a list of feature names"
     assert len(feature_list) > 0, "feature_list should not be empty"
 
@@ -41,11 +48,12 @@ def test_feature_column_alignment_and_types():
         # Assert columns are numeric
         assert pd.api.types.is_numeric_dtype(test_df[col]), f"Feature '{col}' is not numeric."
 
+@requires_test_data
 def test_inference_latency_sla():
     """Assert that the 95th percentile latency of single-row inference is less than 10ms."""
     # Load model
     model = joblib.load('./models/optimized_lightgbm.pkl')
-    
+
     # Load feature list
     with open('./models/feature_list.json', 'r') as f:
         feature_list = json.load(f)
@@ -61,14 +69,14 @@ def test_inference_latency_sla():
     # Performance latency benchmark over 1000 single predictions
     sample_size = min(1000, len(X_test))
     latencies = []
-    
+
     # Measure latency for single rows
     for i in range(sample_size):
-        row = X_test.iloc[i:i+1]
+        row = X_test.iloc[i:i + 1]
         start_time = time.perf_counter()
         _ = model.predict(row)
         end_time = time.perf_counter()
-        latencies.append((end_time - start_time) * 1000) # milliseconds
+        latencies.append((end_time - start_time) * 1000)  # milliseconds
 
     latencies = np.array(latencies)
     p95_latency = np.percentile(latencies, 95)

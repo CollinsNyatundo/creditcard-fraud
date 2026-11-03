@@ -10,17 +10,17 @@ def main():
     print("=" * 60)
     print("BOOTSTRAP STATISTICAL ANALYSIS")
     print("=" * 60)
-    
+
     # Load model and configurations
     model_path = "./models/optimized_lightgbm.pkl"
     calibrated_path = "./models/calibrated_model.pkl"
     feature_list_path = "./models/feature_list.json"
     threshold_path = "./models/optimal_threshold_v2.json"
-    
+
     if not os.path.exists(model_path) or not os.path.exists(feature_list_path) or not os.path.exists(threshold_path):
         print("[FAIL] Optimized model or configs not found. Run training first.")
         return
-        
+
     # Ensure IsotonicCalibratedBooster is registered in __main__
     import sys
     from pathlib import Path
@@ -40,17 +40,17 @@ def main():
         threshold = config_data.get('threshold', 0.5)
         init_score = config_data.get('init_score', 0.0)
         is_focal_loss = config_data.get('is_focal_loss', False)
-        
+
     # Load test data
     test_path = "./data/processed/test_enhanced.csv"
     if not os.path.exists(test_path):
         print(f"[FAIL] Test data not found at {test_path}")
         return
-        
+
     df_test = pd.read_csv(test_path)
     X_test = df_test[feature_cols]
     y_test = df_test['Class'].values
-    
+
     # Load model and predict probabilities
     if os.path.exists(calibrated_path):
         print("Loading calibrated model wrapper...")
@@ -64,9 +64,9 @@ def main():
             y_proba = expit(raw_preds + init_score)
         else:
             y_proba = raw_preds
-        
+
     y_pred = (y_proba >= threshold).astype(int)
-    
+
     # Original metrics
     orig_recall = recall_score(y_test, y_pred)
     orig_auprc = average_precision_score(y_test, y_proba)
@@ -82,7 +82,7 @@ def main():
     print(f"Original F1       : {orig_f1:.4f} (secondary)")
     print(f"Original Precision: {orig_precision:.4f}")
     print(f"Original ROC AUC  : {orig_roc_auc:.4f} (secondary, backward compat.)")
-    
+
     # Run Bootstrap — primary statistic is Recall (gate: >= 0.85)
     print("Running bootstrap resampling (B = 10,000)...")
     np.random.seed(42)
@@ -129,7 +129,7 @@ def main():
     print(f"p-value (Recall < 0.85): {p_value_recall:.4f}")
     print(f"\nBootstrap Mean F1 (secondary): {mean_f1:.4f}")
     print(f"95% CI F1             : [{ci_95_f1[0]:.4f}, {ci_95_f1[1]:.4f}]")
-    
+
     results = {
         "original_recall": orig_recall,
         "original_auprc": orig_auprc,
@@ -154,7 +154,7 @@ def main():
             "is_significant_01": p_value_recall < 0.01,
         },
     }
-    
+
     os.makedirs("./reports", exist_ok=True)
     with open("./reports/bootstrap_statistical_results.json", 'w') as f:
         json.dump(results, f, indent=2)
