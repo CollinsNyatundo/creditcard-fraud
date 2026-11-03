@@ -91,6 +91,11 @@ reports/final_performance_evaluation.json
 reports/drift_dashboard.html
 reports/drift_report.json
 
+# Artefacts the README links to: keep these tracked so badges and charts render
+!reports/end_to_end_optimized_results.json
+!reports/precision_recall_curve.png
+!reports/cost_vs_threshold_curve.png
+
 # ─── AI-Assisted Audit / Scan Artefacts ─────────────────────────────────────
 DEEP_SCAN_FINDINGS.md
 MICRO_AUDIT.md
