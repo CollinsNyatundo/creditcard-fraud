@@ -144,20 +144,21 @@ def load_datasets(
 
 
 def prepare_features(
-    features: pd.DataFrame, models_dir: Path = MODELS_DIR
+    features: pd.DataFrame, models_dir: Path = MODELS_DIR, *, expected_features: list[str] | None = None
 ) -> pd.DataFrame:
     """Align feature set with the model's expected signature."""
     aligned_features = features.copy()
 
     # Load expected features
-    feature_list_path = models_dir / "feature_list.json"
-    if feature_list_path.exists():
-        with feature_list_path.open("r") as file_handler:
-            expected_features = json.load(file_handler)
-    else:
-        feature_names_path = models_dir / "feature_names.json"
-        with feature_names_path.open("r") as file_handler:
-            expected_features = json.load(file_handler)["feature_names"]
+    if expected_features is None:
+        feature_list_path = models_dir / "feature_list.json"
+        if feature_list_path.exists():
+            with feature_list_path.open("r") as file_handler:
+                expected_features = json.load(file_handler)
+        else:
+            feature_names_path = models_dir / "feature_names.json"
+            with feature_names_path.open("r") as file_handler:
+                expected_features = json.load(file_handler)["feature_names"]
 
     # If dataset has Amount_Bin but model expects one-hot columns (baseline fallback)
     if "Amount_Bin" in aligned_features.columns and any(col.startswith("Amount_Bin_") for col in expected_features):
@@ -229,19 +230,20 @@ def print_summary(before_metrics: dict, after_metrics: dict) -> None:
 
 
 def main() -> None:
-    """Calibrate model probabilities using isotonic regression."""
+    """Calibrate model probabilities using Platt scaling."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     model, threshold, is_focal_loss, init_score = load_baseline_model()
     (validation_features, validation_target), (test_features, test_target) = load_datasets()
 
-    validation_prepared = prepare_features(validation_features)
-    test_prepared = prepare_features(test_features)
+    expected_features = model.feature_name()
+    validation_prepared = prepare_features(validation_features, expected_features=expected_features)
+    test_prepared = prepare_features(test_features, expected_features=expected_features)
 
     calibrated_booster = IsotonicCalibratedBooster(
         model, threshold=threshold, is_focal_loss=is_focal_loss, init_score=init_score
     )
 
-    logger.info("Fitting isotonic calibrator on validation set (%d samples)...", len(validation_target))
+    logger.info("Fitting Platt calibrator on validation set (%d samples)...", len(validation_target))
     calibrated_booster.fit(validation_prepared, validation_target)
     logger.info("Calibration complete.")
 
@@ -278,7 +280,7 @@ def main() -> None:
         "before": before_metrics,
         "after": after_metrics,
         "threshold": threshold,
-        "calibration_method": "isotonic",
+        "calibration_method": "platt",
     }
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)

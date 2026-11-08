@@ -15,14 +15,22 @@ def run_optimized_pipeline_test():
     
     # Define paths
     base_dir = "."
-    feature_list_path = os.path.join(base_dir, "models", "feature_list.json")
+    threshold_path = os.path.join(base_dir, "models", "optimal_threshold_v2.json")
     test_data_path = os.path.join(base_dir, "data", "processed", "test_enhanced.csv")
     output_results_path = os.path.join(base_dir, "reports", "end_to_end_optimized_results.json")
     
     # 1. Load optimized model and feature list
     print("1. Loading model and feature list...")
     calibrated_path = os.path.join(base_dir, "models", "calibrated_model.pkl")
-    is_calibrated = False
+    with open(threshold_path, encoding="utf-8") as config_file:
+        config = json.load(config_file)
+    threshold = config['threshold']
+    init_score = config.get('init_score', 0.0)
+    is_focal_loss = config.get('is_focal_loss', False)
+    is_calibrated = config.get('score_space') != 'uncalibrated' and os.path.exists(calibrated_path)
+    if config.get('active') and not is_calibrated:
+        print("   [FAIL] The historical calibrated threshold requires a calibrated model")
+        return False
     
     # Ensure IsotonicCalibratedBooster class is registered
     import sys
@@ -36,24 +44,19 @@ def run_optimized_pipeline_test():
     except ImportError:
         pass
 
-    if os.path.exists(calibrated_path):
+    if is_calibrated:
         model_path = calibrated_path
-        is_calibrated = True
     else:
         model_path = os.path.join(base_dir, "models", "optimized_lightgbm.pkl")
 
     if not os.path.exists(model_path):
         print(f"   [FAIL] Model file not found: {model_path}")
         return False
-    if not os.path.exists(feature_list_path):
-        print(f"   [FAIL] Feature list not found: {feature_list_path}")
-        return False
-        
     try:
         model = joblib.load(model_path)
-        with open(feature_list_path, 'r') as f:
-            feature_cols = json.load(f)
-        print("   [OK] Model and feature list loaded successfully")
+        booster = model.booster if is_calibrated else model
+        feature_cols = booster.feature_name()
+        print("   [OK] Loaded model and its feature signature")
         if is_calibrated:
             print("   Loaded calibrated model wrapper")
         print(f"   Model expects {len(feature_cols)} features")
@@ -99,19 +102,6 @@ def run_optimized_pipeline_test():
         sample_indices = np.random.choice(len(X_test), sample_size, replace=False)
         X_sample = X_test.iloc[sample_indices]
         
-        # Load threshold and focal loss config to determine if we need transformation
-        threshold_path = os.path.join(base_dir, "models", "optimal_threshold_v2.json")
-        init_score = 0.0
-        is_focal_loss = False
-        if os.path.exists(threshold_path):
-            try:
-                with open(threshold_path, 'r') as f:
-                    config_data = json.load(f)
-                    init_score = config_data.get('init_score', 0.0)
-                    is_focal_loss = config_data.get('is_focal_loss', False)
-            except Exception:
-                pass
-
         latencies = []
         # Warm-up run to initialize LightGBM internal structures
         if is_calibrated:
@@ -157,17 +147,6 @@ def run_optimized_pipeline_test():
     # 5. Evaluate overall model performance on full test set
     print("\n5. Running full test set evaluation...")
     try:
-        # Load threshold and focal loss config
-        threshold_path = os.path.join(base_dir, "models", "optimal_threshold_v2.json")
-        threshold = 0.5  # default
-        init_score = 0.0
-        is_focal_loss = False
-        if os.path.exists(threshold_path):
-            with open(threshold_path, 'r') as f:
-                config_data = json.load(f)
-                threshold = config_data.get('threshold', 0.5)
-                init_score = config_data.get('init_score', 0.0)
-                is_focal_loss = config_data.get('is_focal_loss', False)
         print(f"   Using decision threshold: {threshold:.4f}")
         
         start_time = time.perf_counter()
@@ -234,11 +213,13 @@ def run_optimized_pipeline_test():
         print(f"   [OK] Results saved to {output_results_path}")
     except Exception as e:
         print(f"   [FAIL] Failed to save results: {e}")
+        return False
         
     print("\n" + "=" * 60)
-    print("TEST STATUS: SUCCESSFUL")
+    passed = f1_meets_requirement and latency_meets_requirement
+    print(f"TEST STATUS: {'PASS' if passed else 'FAIL'}")
     print("=" * 60)
-    return True
+    return passed
 
 if __name__ == "__main__":
-    run_optimized_pipeline_test()
+    raise SystemExit(0 if run_optimized_pipeline_test() else 1)

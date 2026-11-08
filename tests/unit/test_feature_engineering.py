@@ -19,6 +19,7 @@ from data.src.feature_engineering import (
     scale_features,
     create_temporal_splits,
 )
+from data.src.advanced_feature_engineering import engineer_fraud_specific_features
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -82,6 +83,22 @@ def test_scale_features_no_nan(synthetic_df):
     df_scaled, _, _ = scale_features(engineered)
     numeric = df_scaled.select_dtypes(include=[np.number]).columns
     assert not df_scaled[numeric].isnull().any().any()
+
+
+def test_holdout_features_are_unchanged_by_later_outliers(synthetic_df):
+    train, holdout, _ = create_temporal_splits(synthetic_df)
+    scaled_train, scaler, _ = scale_features(engineer_features(train))
+    amount = scaled_train['Amount']
+    stats = (amount.mean(), amount.std(), amount.quantile(0.01), amount.quantile(0.99))
+
+    def transform(frame):
+        engineered = engineer_features(frame, reference=train)
+        scaled, _, _ = scale_features(engineered, scaler=scaler)
+        return engineer_fraud_specific_features(scaled, stats)
+
+    future = holdout.tail(1).assign(Time=holdout['Time'].max() + 1, Amount=1e8)
+    extended = pd.concat([holdout, future], ignore_index=True)
+    pd.testing.assert_frame_equal(transform(holdout), transform(extended).iloc[:len(holdout)])
 
 
 # ── Tests: create_temporal_splits ─────────────────────────────────────────────
