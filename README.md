@@ -30,7 +30,7 @@ The historical run reused validation rows during model fitting and used later tr
 
 ### Reproduce the corrected run
 
-Use Python 3.13 with the pinned dependencies in `requirements.txt`. Download `creditcard.csv` using the [dataset instructions](data/raw/README.md). The CSV used for the audit has SHA-256 `76274b691b16a6c49d3f159c883398e03ccd6d1ee12d9d8ee38f4b4b98551a89`.
+The full dependency set in `requirements.txt` is tested on Python 3.11 in CI. The offline run above used Python 3.13 with the ML dependencies only. Download `creditcard.csv` using the [dataset instructions](data/raw/README.md). The CSV used for the audit has SHA-256 `76274b691b16a6c49d3f159c883398e03ccd6d1ee12d9d8ee38f4b4b98551a89`.
 
 ```sh
 git show d5016073f702b75a8c27934003e32f85d0a6689e:reports/hyperparameter_optimization.json > historical-params.json
