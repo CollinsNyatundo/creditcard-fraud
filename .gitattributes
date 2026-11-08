@@ -1,0 +1,2 @@
+# LightGBM's tree_sizes field uses byte offsets into the model text.
+models/*_lightgbm.txt text eol=lf

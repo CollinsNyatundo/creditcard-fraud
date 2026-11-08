@@ -1,14 +1,11 @@
 # Real-Time Credit Card Fraud Detection Pipeline
 
-An enterprise-grade, containerized machine learning pipeline designed to identify fraudulent transactions in real-time under strict latency constraints.
+A containerized fraud detection prototype with an offline LightGBM benchmark and a transaction scoring API.
 
 <div align="center">
 
 [![Python Version](https://img.shields.io/badge/python-3.11-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-red?style=for-the-badge&logo=apache)](LICENSE)
-[![Pipeline Status](https://img.shields.io/badge/Pipeline-Verified-success?style=for-the-badge&logo=checkmarx&logoColor=white)](debug_scripts/end_to_end_test_optimized.py)
-[![F1-Score](https://img.shields.io/badge/F1--Score-0.8041-yellowgreen?style=for-the-badge)](reports/end_to_end_optimized_results.json)
-[![Latency SLA](https://img.shields.io/badge/Latency-<%2010ms%20(95th)-blueviolet?style=for-the-badge)](reports/end_to_end_optimized_results.json)
 
 </div>
 
@@ -16,29 +13,33 @@ An enterprise-grade, containerized machine learning pipeline designed to identif
 
 In real-time credit card transaction authorization systems, classification latency and false-positive rates directly dictate business profitability and customer churn. A model that misses fraud costs millions in chargebacks and recovery costs; a model that is too slow (>10ms) gets bypassed by gateway routers to avoid transaction abandonment; and a model with poor precision triggers false alarms that degrade the user experience for legitimate cardholders.
 
-This project delivers a **production-ready fraud classification pipeline** trained on the [Kaggle Credit Card Fraud Detection Dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) (featuring 284,807 transactions by European cardholders in September 2013, with an extreme class imbalance of 0.172% fraud rate, published by the Machine Learning Group of Université Libre de Bruxelles). 
-
-By utilizing a hybrid resampling approach (SMOTE + random under-sampling), robust PCA feature interaction engineering, and Optuna hyperparameter optimization with strict latency constraints, our flagship model guarantees sub-2 millisecond inference times while optimizing classification under strict chronological split constraints. It achieves a **0.8041** F1-score on the temporal test holdout, eliminating data leakage flaws present in standard random splitting protocols.
+The offline benchmark uses the [ULB credit card fraud dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud), which contains 284,807 transactions by European cardholders in September 2013. The benchmark uses the dataset's 28 anonymized PCA features. The scoring API accepts a different input contract, so these quality and latency measurements apply to offline model evaluation.
 
 ---
 
 ## Model Performance
 
-The following metrics have been verified on the test dataset through our end-to-end benchmarking suite (`debug_scripts/end_to_end_test_optimized.py`) and final evaluation suite (`model/src/final_model_evaluation.py`):
+Both runs used the same chronological holdout of 42,722 transactions, including 52 frauds.
 
-| Metric | Project Target | Baseline Model | Calibrated + Optimized Model | Status |
-| :--- | :---: | :---: | :---: | :---: |
-| **F1-Score** | **> 0.85** | 0.8041 | **0.8041** | **[NEAR TARGET]** |
-| **Precision** | **> 0.90** | 0.8667 | **0.8667** | **[NEAR TARGET]** |
-| **Recall** | **> 0.80** | 0.7500 | **0.7500** | **[NEAR TARGET]** |
-| **PR-AUC (AUPRC)** | *N/A* | 0.7381 | **0.7672** | **[+0.0291 IMPROVEMENT]** |
-| **ROC AUC** | *N/A* | 0.9748 | **0.9838** | **[EXCELLENT]** |
-| **Mean Latency** | *N/A* | 1.40 ms | **1.02 ms** | **[PASS]** |
-| **95th Percentile Latency** | **< 10.00 ms** | 3.63 ms | **1.41 ms** | **[PASS]** |
-| **99th Percentile Latency** | *N/A* | 7.55 ms | **1.79 ms** | **[PASS]** |
+| Offline run | F1 | Precision | Recall |
+| :--- | ---: | ---: | ---: |
+| Historical model at `d501607`, rescored from a clean checkout plus the CSV | 0.8041 | 0.8667 | 0.7500 |
+| Corrected focal-loss run, using stored hyperparameters and an uncalibrated threshold | 0.7723 | 0.7959 | 0.7500 |
 
-> [!TIP]
-> The calibrated and optimized LightGBM model successfully meets real-time latency (<10ms 95th percentile) constraints, achieving **86.67% Precision**, **75.00% Recall**, and **1.41 ms 95th percentile latency** under strict, leakage-free chronological data splits. The Platt-scaled probability calibration improves PR-AUC by **2.91%** (reaching **0.7672**).
+The historical run reused validation rows during model fitting and used later transactions to fit some preprocessing statistics. The corrected run fits statistics on training data, builds transaction windows from real transactions, and uses separate chronological validation slices for early stopping and threshold selection. Both runs miss the F1 target of 0.85 and the recall gate of 0.85. The historical [benchmark report](reports/end_to_end_optimized_results.json) measures inference on precomputed features.
+
+### Reproduce the corrected run
+
+Use Python 3.13 with the pinned dependencies in `requirements.txt`. Download `creditcard.csv` using the [dataset instructions](data/raw/README.md). The CSV used for the audit has SHA-256 `76274b691b16a6c49d3f159c883398e03ccd6d1ee12d9d8ee38f4b4b98551a89`.
+
+```sh
+git show d5016073f702b75a8c27934003e32f85d0a6689e:reports/hyperparameter_optimization.json > historical-params.json
+python data/src/feature_engineering.py
+python data/src/advanced_feature_engineering.py
+python model/src/hyperparameter_tuning.py --params-report historical-params.json
+```
+
+Run in a scratch checkout because the scripts write model files and reports. The command reuses a previous parameter search. The bootstrap intervals below describe the historical model.
 
 ### Visual Performance & Cost Curves
 
@@ -54,9 +55,9 @@ Rather than presenting nominal point estimates that suffer from high evaluation 
 - **Statistical Insignificance ($p=0.9565$)**: A hypothesis test comparing our optimized model against the target ($0.85$ Recall) yields a p-value of `0.9565`. This confirms that the Recall difference is not statistically significant at $\alpha=0.05$ due to the small sample size of the positive class in temporal test partitions (52 fraud cases).
 - **Underpowered Point Comparisons (24.8% Power)**: A simulation-based power analysis shows that a test set with **52 fraud transactions** only has a **24.8% statistical power** to detect an F1-score difference. The probability of a Type II error (failing to detect a real difference) remains high.
 - **Data Scale Constraints**: To reach the standard **80% statistical power**, a test partition must contain **325 fraud transactions**. Under the natural $0.172\%$ fraud occurrence rate, this requires a test split of over 188,000 transactions, translating to a total dataset of **over 944,000 transactions** under a 60/20/20 partition.
-- **Production Value Proposition**: Point-estimate F1 rankings in credit card fraud detection are mathematically underpowered on standard test sets. The real competitive differentiator of this pipeline is its **strict temporal data isolation**. By executing all preprocessing and resampling solely on chronological training data, we guarantee a leakage-free, realistic classifier that generalizes safely in production fintech environments.
+- **Generalization limits**: This dataset covers two days of anonymized European card transactions. The small number of holdout frauds limits comparisons, and performance on other transaction streams needs separate evaluation.
 - **Hypothetical p-value Scaling**: By projecting statistical significance across test partition scales (assuming constant precision and recall), we show that our F1-score comparison achieves significance ($p < 0.05$) at the target scale of **$N_{fraud} = 325$** ($p \approx 0.0250$).
-- **Latency SLA Compliance**: The optimized LightGBM model achieves a **1.41 ms 95th percentile latency** and **0.95 ms median latency**, ensuring compliance with strict gateway routing constraints (<10 ms).
+- **Historical model latency**: The original report recorded **1.41 ms p95** and **0.95 ms median** for in-process scoring on precomputed features.
 
 #### F1-Score Statistical Validation Visualizations:
 
@@ -488,7 +489,7 @@ docker compose -f docker-compose.yml -f docker-compose.frontend.yml up -d
 To guarantee low latency on the prediction path while maintaining data persistence, the system utilizes a **Write-Ahead Logging (WAL)** system on Redis:
 1. The **FastAPI predict endpoint** receives a transaction, executes the inference with the calibrated LightGBM model, and instantly pushes the predicted values to a Redis list.
 2. A background **DLQ worker** (`workers/dlq_worker.py`) consumes records from the list in batches and writes them to the PostgreSQL database async using bulk insertion.
-3. This architecture decouples transactional database latency from the API response loop, keeping median request latency strictly under **2.0 ms**.
+3. This architecture decouples transactional database writes from the API response loop.
 
 ---
 

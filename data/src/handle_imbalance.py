@@ -41,8 +41,8 @@ def handle_class_imbalance(df, random_state=42):
     y = df['Class']
     print(f"Before sampling - X shape: {X.shape}, y shape: {y.shape}")
     print(f"Original class distribution: {y.value_counts().to_dict()}")
-    # Identify categorical columns (object dtype)
-    categorical_features = X.select_dtypes(include=['object']).columns.tolist()
+    # pandas 3 infers string columns when reading the processed CSV.
+    categorical_features = X.select_dtypes(include=['object', 'string', 'category']).columns.tolist()
     numerical_features = X.select_dtypes(include=[np.number]).columns.tolist()
     print(f"Categorical features: {categorical_features}")
     print(f"Numerical features: {len(numerical_features)}")

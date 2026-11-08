@@ -11,16 +11,17 @@ def load_data(filepath):
     df = pd.read_csv(filepath)
     print(f"Dataset loaded with shape: {df.shape}")
     return df
-def engineer_features(df):
+def engineer_features(df, reference=None):
     """Perform feature engineering on the dataset."""
     print("\n--- FEATURE ENGINEERING ---")
     # Create a copy to avoid modifying the original dataframe
     df_processed = df.copy()
+    reference = df if reference is None else reference
     # Temporal features from Time column
     # Hours since first transaction (assuming Time is in seconds)
     df_processed['Time_Hours'] = df_processed['Time'] / 3600
     # Normalized time
-    df_processed['Time_Normalized'] = (df_processed['Time'] - df_processed['Time'].mean()) / df_processed['Time'].std()
+    df_processed['Time_Normalized'] = (df_processed['Time'] - reference['Time'].mean()) / (reference['Time'].std() or 1)
     # Cyclical encoding of time (hours in day)
     df_processed['Time_Hour'] = (df_processed['Time'] / 3600) % 24
     df_processed['Time_Hour_Sin'] = np.sin(2 * np.pi * df_processed['Time_Hour'] / 24)
@@ -29,7 +30,7 @@ def engineer_features(df):
     # Log transformation (adding 1 to handle zero values)
     df_processed['Amount_Log'] = np.log1p(df_processed['Amount'])
     # Normalized amount
-    df_processed['Amount_Normalized'] = (df_processed['Amount'] - df_processed['Amount'].mean()) / df_processed['Amount'].std()
+    df_processed['Amount_Normalized'] = (df_processed['Amount'] - reference['Amount'].mean()) / (reference['Amount'].std() or 1)
     # Amount bins (low/medium/high)
     df_processed['Amount_Bin'] = pd.cut(df_processed['Amount'],
                                         bins=[0, 10, 100, np.inf],
@@ -39,7 +40,7 @@ def engineer_features(df):
     df_processed = pd.concat([df_processed, amount_bin_dummies], axis=1)
     print(f"Feature engineering completed. New shape: {df_processed.shape}")
     return df_processed
-def scale_features(df):
+def scale_features(df, scaler=None):
     """Apply robust scaling to V1-V28 and Amount features."""
     print("\n--- FEATURE SCALING ---")
     # Identify features to scale
@@ -48,9 +49,10 @@ def scale_features(df):
                          'V21', 'V22', 'V23', 'V24', 'V25', 'V26', 'V27', 'V28',
                          'Amount', 'Amount_Log', 'Amount_Normalized']
     # Apply robust scaling
-    scaler = RobustScaler()
+    if scaler is None:
+        scaler = RobustScaler().fit(df[features_to_scale])
     df_scaled = df.copy()
-    df_scaled[features_to_scale] = scaler.fit_transform(df[features_to_scale])
+    df_scaled[features_to_scale] = scaler.transform(df[features_to_scale])
     print(f"Feature scaling completed. Scaled features: {len(features_to_scale)}")
     return df_scaled, scaler, features_to_scale
 def create_temporal_splits(df, train_size=0.70, val_size=0.15, random_state=42):
@@ -152,12 +154,10 @@ def main():
     print("=" * 70)
     # Load data
     df = load_data('./data/raw/creditcard.csv')
-    # Engineer features
-    df_engineered = engineer_features(df)
-    # Scale features
-    df_scaled, scaler, features_scaled = scale_features(df_engineered)
-    # Create temporal splits
-    train_df, val_df, test_df = create_temporal_splits(df_scaled, train_size=0.70, val_size=0.15, random_state=42)
+    train, val, test = create_temporal_splits(df, train_size=0.70, val_size=0.15)
+    train_df, scaler, features_scaled = scale_features(engineer_features(train))
+    val_df, _, _ = scale_features(engineer_features(val, reference=train), scaler=scaler)
+    test_df, _, _ = scale_features(engineer_features(test, reference=train), scaler=scaler)
     # Analyze splits
     analyze_splits(train_df, val_df, test_df)
     # Save splits and artifacts

@@ -252,7 +252,8 @@ def save_model_artifacts(model, threshold, feature_names):
     print("\n--- SAVING MODEL ARTIFACTS ---")
     # Save LightGBM model
     model_path = './models/baseline_lightgbm.txt'
-    model.save_model(model_path)
+    with open(model_path, 'w', encoding='utf-8', newline='\n') as model_file:
+        model_file.write(model.model_to_string())
     print(f"LightGBM model saved to: {model_path}")
     # Save model with joblib (alternative format)
     model_joblib_path = './models/baseline_lightgbm.pkl'

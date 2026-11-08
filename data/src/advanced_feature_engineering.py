@@ -8,18 +8,19 @@ def encode_amount_bin(df):
         df['Amount_Bin_Low'] = (df['Amount_Bin'] == 'Low').astype(float)
         df['Amount_Bin_Medium'] = (df['Amount_Bin'] == 'Medium').astype(float)
         df['Amount_Bin_High'] = (df['Amount_Bin'] == 'High').astype(float)
-        df['Amount_Bin_nan'] = (df['Amount_Bin'] == 'nan').astype(float)
-        df = df.drop('Amount_Bin', axis=1)
+        df['Amount_Bin_nan'] = df['Amount_Bin'].isna().astype(float)
+        df = df.drop(columns=['Amount_Bin', 'Amount_Low', 'Amount_Medium', 'Amount_High'], errors='ignore')
     return df
 
 def load_and_analyze_data():
     """Load and analyze processed training data"""
     print("Loading processed data...")
-    train_df = pd.read_csv('./data/processed/train_balanced.csv')
+    train_df = pd.read_csv('./data/processed/train.csv')
     val_df = pd.read_csv('./data/processed/val.csv')
     test_df = pd.read_csv('./data/processed/test.csv')
 
-    # One-hot encode Amount_Bin for validation and test splits
+    # Use the same encoding on real, unresampled transactions in every split.
+    train_df = encode_amount_bin(train_df)
     val_df = encode_amount_bin(val_df)
     test_df = encode_amount_bin(test_df)
 
@@ -85,23 +86,20 @@ def engineer_interaction_features(df):
     # Amount ratio features
     df['amt_ratio_3'] = df['Amount'] / (df['amt_mean_3'] + 1e-8)  # Add small epsilon to avoid division by zero
     return df
-def engineer_fraud_specific_features(df):
-    """Implement fraud-specific anomaly features"""
+def engineer_fraud_specific_features(df, amount_stats):
+    """Build anomaly features using amount statistics fitted on training data."""
     print("Engineering fraud-specific features...")
     df = df.copy()
     # Sort by Time
     df = df.sort_values('Time').reset_index(drop=True)
     # Amount deviation from overall distribution
-    overall_mean = df['Amount'].mean()
-    overall_std = df['Amount'].std()
+    overall_mean, overall_std, amt_1_percentile, amt_99_percentile = amount_stats
     df['amt_overall_zscore'] = (df['Amount'] - overall_mean) / (overall_std + 1e-8)
     # Expanding window statistics (user's typical spending)
     df['amt_cumsum'] = df['Amount'].expanding(min_periods=1).sum()
     df['amt_cumcount'] = df['Amount'].expanding(min_periods=1).count()
     df['amt_cummean'] = df['amt_cumsum'] / df['amt_cumcount']
     # Binary flags for extreme conditions
-    amt_99_percentile = df['Amount'].quantile(0.99)
-    amt_1_percentile = df['Amount'].quantile(0.01)
     df['amt_extremely_high'] = (df['Amount'] > amt_99_percentile).astype(int)
     df['amt_extremely_low'] = (df['Amount'] < amt_1_percentile).astype(int)
     return df
@@ -191,19 +189,21 @@ def main():
     """Main function to run feature engineering pipeline"""
     # Load data
     train_df, val_df, test_df = load_and_analyze_data()
+    amount = train_df['Amount']
+    amount_stats = (amount.mean(), amount.std(), amount.quantile(0.01), amount.quantile(0.99))
     # Apply feature engineering steps
     train_df = engineer_temporal_features(train_df)
     train_df = engineer_statistical_features(train_df)
     train_df = engineer_interaction_features(train_df)
-    train_df = engineer_fraud_specific_features(train_df)
+    train_df = engineer_fraud_specific_features(train_df, amount_stats)
     val_df = engineer_temporal_features(val_df)
     val_df = engineer_statistical_features(val_df)
     val_df = engineer_interaction_features(val_df)
-    val_df = engineer_fraud_specific_features(val_df)
+    val_df = engineer_fraud_specific_features(val_df, amount_stats)
     test_df = engineer_temporal_features(test_df)
     test_df = engineer_statistical_features(test_df)
     test_df = engineer_interaction_features(test_df)
-    test_df = engineer_fraud_specific_features(test_df)
+    test_df = engineer_fraud_specific_features(test_df, amount_stats)
     # Apply feature selection
     train_df, val_df, test_df, feature_cols = apply_feature_selection(train_df, val_df, test_df)
     # Save enhanced datasets

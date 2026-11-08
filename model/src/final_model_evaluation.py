@@ -28,6 +28,7 @@ from sklearn.metrics import (
     roc_auc_score,
 )
 from sklearn.preprocessing import OneHotEncoder
+from scipy.special import expit
 import lightgbm as lgb
 import matplotlib
 matplotlib.use('Agg')
@@ -99,10 +100,10 @@ def load_optimized_threshold() -> Optional[float]:
     return None
 
 
-def load_test_data() -> Tuple[pd.DataFrame, pd.Series]:
+def load_test_data(*, enhanced: bool = True) -> Tuple[pd.DataFrame, pd.Series]:
     """Load test split, choosing enhanced version if available."""
     test_path = DATA_DIR / "test_enhanced.csv"
-    if not test_path.exists():
+    if not enhanced or not test_path.exists():
         test_path = DATA_DIR / "test.csv"
     logger.info("Loading test data from %s", test_path)
     df = pd.read_csv(test_path)
@@ -157,6 +158,8 @@ def _predict_proba(model, X: pd.DataFrame) -> np.ndarray:
         return cast(np.ndarray, model.predict_proba(X)[:, 1])
     if isinstance(model, lgb.Booster):
         return cast(np.ndarray, model.predict(X, num_iteration=model.best_iteration))
+    if callable(model):
+        return cast(np.ndarray, model(X))
     return cast(np.ndarray, model.predict(X))
 
 
@@ -356,17 +359,10 @@ def main() -> None:
 
     # --- Load assets ---
     baseline_model, baseline_threshold = load_baseline_model()
-    calibrated_model = load_calibrated_model()
-    optimized_threshold = load_optimized_threshold()
-
-    # --- Load and prepare test data ---
-    X_test_raw, y_test = load_test_data()
+    config_path = MODELS_DIR / "optimal_threshold_v2.json"
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+    X_test_raw, y_test = load_test_data(enhanced=False)
     X_test_baseline = prepare_features(X_test_raw, "feature_names.json")
-    X_test_optimised = prepare_features(X_test_raw, "feature_list.json")
-
-    # --- Feature coverage check ---
-    logger.info("Running feature explanations coverage check…")
-    check_feature_explanations_coverage(list(X_test_optimised.columns))
 
     # --- Baseline evaluation ---
     baseline_metrics = compute_metrics(
@@ -374,27 +370,40 @@ def main() -> None:
     )
 
     # --- Optimised evaluation (calibrated model + optimized threshold if available) ---
-    eval_model = calibrated_model if calibrated_model is not None else baseline_model
-    eval_threshold = optimized_threshold if optimized_threshold is not None else baseline_threshold
-    optimised_label = (
-        f"{'Calibrated' if calibrated_model else 'Baseline'}"
-        f"+{'OptimizedThresh' if optimized_threshold else 'BaselineThresh'}"
-    )
+    if config.get("score_space") == "uncalibrated":
+        booster = lgb.Booster(model_file=str(MODELS_DIR / "optimized_lightgbm.txt"))
+
+        def predict_optimized(X):
+            margin = booster.predict(X, raw_score=True, validate_features=True)
+            return expit(margin + config["init_score"])
+
+        eval_model = predict_optimized
+        optimised_label = "Optimized (uncalibrated)"
+    else:
+        eval_model = load_calibrated_model()
+        optimised_label = "Optimized (calibrated)"
+
+    optimized_threshold = load_optimized_threshold() if eval_model is not None else None
 
     optimised_metrics: Optional[Dict] = None
-    if calibrated_model is not None or optimized_threshold is not None:
+    if eval_model is not None and optimized_threshold is not None:
+        X_test_enhanced, y_test_enhanced = load_test_data()
+        if config.get("score_space") == "uncalibrated":
+            X_test_optimised = X_test_enhanced[booster.feature_name()]
+        else:
+            X_test_optimised = prepare_features(X_test_enhanced, "feature_list.json")
+        check_feature_explanations_coverage(list(X_test_optimised.columns))
         optimised_metrics = compute_metrics(
-            eval_model, X_test_optimised, y_test, eval_threshold, label=optimised_label
+            eval_model, X_test_optimised, y_test_enhanced, optimized_threshold, label=optimised_label
         )
 
         # Plot PR Curve for the optimized model configuration
         y_proba_opt = _predict_proba(eval_model, X_test_optimised)
-        plot_precision_recall_curve(y_test, y_proba_opt, label=optimised_label)
+        plot_precision_recall_curve(y_test_enhanced, y_proba_opt, label=optimised_label)
+        latency = benchmark_latency(eval_model, X_test_optimised)
     else:
         logger.info("No optimisations available — reporting baseline only.")
-
-    # --- Latency benchmark on eval model ---
-    latency = benchmark_latency(eval_model, X_test_optimised)
+        latency = benchmark_latency(baseline_model, X_test_baseline)
 
     # --- Deployment readiness (against best available metrics) ---
     best_metrics = optimised_metrics if optimised_metrics is not None else baseline_metrics

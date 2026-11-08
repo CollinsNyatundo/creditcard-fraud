@@ -308,12 +308,8 @@ def load_data():
     # Get all columns except Class and Time
     feature_cols = [col for col in train_df.columns if col not in ['Class', 'Time']]
 
-    # Make sure all datasets have the same features
-    common_features = set(feature_cols)
-    common_features = common_features.intersection(set(val_df.columns))
-    common_features = common_features.intersection(set(test_df.columns))
-    feature_cols = list(common_features)
-    print(f"Using {len(feature_cols)} common features")
+    # Preserve the training feature order for reproducible model artifacts.
+    print(f"Using {len(feature_cols)} training features")
 
     # Prepare data
     X_train = train_df[feature_cols]
@@ -401,6 +397,7 @@ def main():
         default='focal',
         help='Optimization objective: focal (focal loss + F1) or f1_precision_pareto (F1/Precision balance)'
     )
+    parser.add_argument('--params-report', help='Reuse best_params from a previous tuning report')
     args = parser.parse_args()
 
     print(f"Using objective mode: {args.objective}")
@@ -409,7 +406,12 @@ def main():
     X_train, y_train, X_val, y_val, X_test, y_test, feature_cols = load_data()
 
     # Create objective function based on selected mode
-    if args.objective == 'f1_precision_pareto':
+    if args.params_report:
+        with open(args.params_report, encoding='utf-8') as report:
+            previous_run = json.load(report)
+        tuned_params = previous_run['best_params']
+        best_score = previous_run.get('best_score')
+    elif args.objective == 'f1_precision_pareto':
         objective = F1PrecisionParetoObjective(X_train, y_train, X_val, y_val, feature_cols)
         study = optuna.create_study(
             direction='maximize',
@@ -424,26 +426,20 @@ def main():
             study_name='focal_loss'
         )
 
-    # Optimize
-    print("Starting hyperparameter optimization...")
-    study.optimize(objective, n_trials=150, timeout=1800)
-    print(f"Best trial: {study.best_trial.number}")
-    print(f"Best score: {study.best_trial.value:.4f}")
-    print(f"Best parameters: {study.best_trial.params}")
+    if not args.params_report:
+        print("Starting hyperparameter optimization...")
+        study.optimize(objective, n_trials=150, timeout=1800)
+        tuned_params = study.best_trial.params
+        best_score = study.best_trial.value
+        print(f"Best trial: {study.best_trial.number}")
+        print(f"Best score: {best_score:.4f}")
+    print(f"Parameters: {tuned_params}")
 
     # Train final model with best parameters
     print("Training final model with best parameters...")
-    best_params = study.best_trial.params.copy()
-
-    if args.objective == 'f1_precision_pareto':
-        # For pareto mode, alpha/gamma were still tuned during search
-        best_alpha = best_params.pop('alpha')
-        best_gamma = best_params.pop('gamma')
-        is_focal_loss = False
-    else:
-        best_alpha = best_params.pop('alpha')
-        best_gamma = best_params.pop('gamma')
-        is_focal_loss = True
+    best_params = tuned_params.copy()
+    best_alpha = best_params.pop('alpha')
+    best_gamma = best_params.pop('gamma')
 
     focal_loss_final = FocalLoss(alpha=best_alpha, gamma=best_gamma)
 
@@ -455,21 +451,22 @@ def main():
         'random_state': 42
     })
 
-    # Combine train and validation sets for final training
-    X_combined = pd.concat([X_train, X_val])
-    y_combined = pd.concat([y_train, y_val])
-
-    final_init_score = focal_loss_final.init_score(y_combined)
+    # The validation block stays out of model fitting. Reserve its later half
+    # for choosing a threshold after the boosting iteration has been selected.
+    cutoff = len(X_val) // 2
+    X_early_stop, y_early_stop = X_val.iloc[:cutoff], y_val.iloc[:cutoff]
+    X_threshold, y_threshold = X_val.iloc[cutoff:], y_val.iloc[cutoff:]
+    final_init_score = focal_loss_final.init_score(y_train)
 
     train_data = lgb.Dataset(
-        X_combined[feature_cols],
-        label=y_combined,
-        init_score=np.full_like(y_combined, final_init_score, dtype=float)
+        X_train[feature_cols],
+        label=y_train,
+        init_score=np.full_like(y_train, final_init_score, dtype=float)
     )
     valid_data = lgb.Dataset(
-        X_val[feature_cols],
-        label=y_val,
-        init_score=np.full_like(y_val, final_init_score, dtype=float),
+        X_early_stop[feature_cols],
+        label=y_early_stop,
+        init_score=np.full_like(y_early_stop, final_init_score, dtype=float),
         reference=train_data
     )
 
@@ -483,7 +480,7 @@ def main():
     )
 
     # Evaluate model
-    results = evaluate_model(final_model, X_val, y_val, X_test, y_test, feature_cols, final_init_score)
+    results = evaluate_model(final_model, X_threshold, y_threshold, X_test, y_test, feature_cols, final_init_score)
     print("\n=== MODEL EVALUATION RESULTS ===")
     print(f"Objective Type: {args.objective}")
     print(f"F1 Score: {results['f1_score']:.4f}")
@@ -502,17 +499,19 @@ def main():
 
     # Save model and results
     print("Saving model and results...")
-    final_model.save_model('./models/optimized_lightgbm.txt')
+    with open('./models/optimized_lightgbm.txt', 'w', encoding='utf-8', newline='\n') as model_file:
+        model_file.write(final_model.model_to_string())
     joblib.dump(final_model, './models/optimized_lightgbm.pkl')
 
     # Save optimal threshold and focal loss config
     with open('./models/optimal_threshold_v2.json', 'w') as f:
         json.dump({
             'threshold': results['optimal_threshold'],
+            'score_space': 'uncalibrated',
             'init_score': float(final_init_score),
             'alpha': float(best_alpha),
             'gamma': float(best_gamma),
-            'is_focal_loss': is_focal_loss,
+            'is_focal_loss': True,
             'objective_type': args.objective
         }, f)
 
@@ -528,8 +527,16 @@ def main():
         "source_script": "model/src/hyperparameter_tuning.py",
         "artifact_of": "creditcard-fraud-pipeline",
         "objective_type": args.objective,
-        'best_params': study.best_trial.params,
-        'best_score': study.best_trial.value,
+        'best_params': tuned_params,
+        'best_score': best_score,
+        'params_report': args.params_report,
+        'split_rows': {
+            'train': len(X_train),
+            'early_stop': len(X_early_stop),
+            'threshold': len(X_threshold),
+            'test': len(X_test),
+            'test_frauds': int(y_test.sum()),
+        },
         'final_metrics': results
     }
     with open('./reports/hyperparameter_optimization.json', 'w') as f:
